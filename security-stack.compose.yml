@@ -430,14 +430,17 @@ services:
     environment:
       INDEXER_URL: "https://wazuh-indexer:9200"
       FILEBEAT_SSL_VERIFICATION_MODE: "${WAZUH_FILEBEAT_SSL_VERIFICATION_MODE:-none}"
-    ports:
-      - "${STACK_BIND_IP:-0.0.0.0}:${WAZUH_EVENTS_PORT:-1514}:1514/udp"
-      - "${STACK_BIND_IP:-0.0.0.0}:${WAZUH_ENROLLMENT_PORT:-1515}:1515"
-      - "${STACK_BIND_IP:-0.0.0.0}:${WAZUH_API_PORT:-55000}:55000"
+      ports:
+        - "${STACK_BIND_IP:-0.0.0.0}:${WAZUH_EVENTS_PORT:-1514}:1514/udp"
+        - "${STACK_BIND_IP:-0.0.0.0}:${WAZUH_FALLBACK_SYSLOG_PORT:-1516}:1516/udp"
+        - "${STACK_BIND_IP:-0.0.0.0}:${WAZUH_ENROLLMENT_PORT:-1515}:1515"
+        - "${STACK_BIND_IP:-0.0.0.0}:${WAZUH_API_PORT:-55000}:55000"
     volumes:
       - wazuh-manager-data:/var/ossec/data
       - wazuh-manager-logs:/var/ossec/logs
       - wazuh-manager-queue:/var/ossec/queue
+      - "./The Brain/Wazuh/rules/local_rules.xml:/var/ossec/etc/rules/local_rules.xml:ro"
+      - "./The Brain/Wazuh/decoders/local_decoder.xml:/var/ossec/etc/decoders/local_decoder.xml:ro"
     networks:
       - secnet
     depends_on:
