@@ -1,6 +1,6 @@
 # HQ Security Stack
 
-Linux Docker Compose lab for SOC monitoring, network visibility, incident response, vulnerability management, local DNS, and secrets management.
+A comprehensive home security stack aimed at implementing file integrity monitoring (FIM), alerting, intrusion prevention/detection systems (IPS/IDS), log assessment and forensics, log aggregation visualization, and response and mitigation steps for possible malicious attacks.
 
 ## Quick Start
 
