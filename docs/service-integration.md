@@ -9,7 +9,9 @@ This stack is a Linux Docker Engine lab for SOC telemetry, incident response, an
 | `brain` | Wazuh, Graylog, MongoDB, Graylog Data Node | Wazuh dashboard `https://localhost:5601`, Wazuh API `https://localhost:55000`, Graylog `http://localhost:9000`, GELF UDP `12201`, syslog TCP/UDP `5514` |
 | `dns` | CoreDNS, Caddy FQDN proxy | DNS `127.0.0.1:1053`, FQDN HTTP proxy `10.77.0.80:80` |
 | `secrets` | Vault and monthly secret rotator | Vault `http://localhost:8200`, `vault.hq-sec.local` |
-| `ops` | Backup and vulnerability observation | Volume archives in `./backups`, Trivy reports in `./reports/container-vulnerabilities` |
+| `ops` | Backup and vulnerability observation | Volume archives in `./The Hands/backups`, Trivy reports in `./The Hands/reports/data/container-vulnerabilities` |
+| `monitor` | Uptime monitoring | Uptime Kuma `http://localhost:3002`, `uptime.hq-sec.local`; desired monitors in `The Eyes/Uptime-Kuma/monitors.yml` |
+| `llm` | Local LLM assessment and report generation | Ollama `http://localhost:11434`, `ollama.hq-sec.local`; reports in `./The Hands/reports/data/log-assessments` |
 | `network` | Suricata, Zeek | Host-network capture on `${SENSOR_INTERFACE}`; logs in `suricata-logs` and `zeek-logs` volumes |
 | `ir` | TheHive, Shuffle, Velociraptor, Ansible | TheHive `http://localhost:9001`, Shuffle `http://localhost:3001` and API `5001`, Velociraptor GUI `http://localhost:8889`, frontend `8000` |
 | `vuln` | Osquery, Greenbone Community services | Greenbone Security Assistant `https://localhost:9443` or redirect port `9392`, osquery interactive shell |
@@ -31,6 +33,10 @@ Incidents flow from Wazuh/Graylog alerts into TheHive cases. Shuffle calls TheHi
 Vulnerability context comes from Greenbone scans and osquery checks. Greenbone follows the community container architecture: feed data containers populate shared volumes, PostgreSQL and Redis support `gvmd`/OpenVAS, `gsad` exposes the management API, and `greenbone-nginx` serves GSA. Findings can be attached to TheHive cases and indexed in Graylog for correlation with endpoint and network events.
 
 Operational resilience comes from persistent named volumes plus the `volume-backup` service. `container-vuln-scanner` scans the configured container images with Trivy and writes reports for the observing AI agent to triage.
+
+Ollama provides the local LLM reasoning layer. `ollama-assessor` queries Graylog for recent logs, samples local security evidence, sends the context to `ollama:11434/api/generate`, and writes analyst-facing Markdown/JSON reports. The model is stateless unless future RAG context is explicitly added.
+
+IPFire and host firewall artifacts are currently disabled under `.disabled-services/`. Uptime Kuma monitors availability of the exposed service FQDNs, while Suricata and Zeek provide network visibility when the `network` profile has a useful capture interface.
 
 ## Non-Root And Privilege Notes
 
@@ -75,7 +81,7 @@ Check backup and scan outputs:
 docker logs volume-backup --tail 100
 find backups -maxdepth 2 -type f | sort
 docker logs container-vuln-scanner --tail 100
-find reports/container-vulnerabilities/latest -maxdepth 1 -type f | sort
+find "The Hands/reports/data/container-vulnerabilities/latest" -maxdepth 1 -type f | sort
 ```
 
 Check internal DNS from a temporary container:
@@ -91,3 +97,5 @@ Check local FQDN DNS:
 dig @127.0.0.1 -p 1053 graylog.hq-sec.local
 curl http://graylog.hq-sec.local
 ```
+
+

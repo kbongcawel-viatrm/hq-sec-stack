@@ -1,0 +1,4 @@
+alert http $HOME_NET any -> $EXTERNAL_NET any (msg:"HQSEC Suspicious PowerShell user agent"; http.user_agent; content:"PowerShell"; nocase; classtype:trojan-activity; sid:9000001; rev:1;)
+alert dns $HOME_NET any -> $EXTERNAL_NET any (msg:"HQSEC Suspicious dynamic DNS lookup"; dns.query; pcre:"/((duckdns|no-ip|dynu|hopto|zapto)\.)/i"; classtype:trojan-activity; sid:9000002; rev:1;)
+alert tcp $HOME_NET any -> $EXTERNAL_NET [4444,5555,6666,7777,8080,9001] (msg:"HQSEC Suspicious outbound callback port"; flow:to_server,established; classtype:trojan-activity; sid:9000003; rev:1;)
+alert http $EXTERNAL_NET any -> $HOME_NET any (msg:"HQSEC Suspicious web exploit string"; http.uri; pcre:"/(cmd=|powershell|wget|curl|\.env|\/etc\/passwd)/i"; classtype:web-application-attack; sid:9000004; rev:1;)

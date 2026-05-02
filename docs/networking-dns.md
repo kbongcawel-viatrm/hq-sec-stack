@@ -31,6 +31,9 @@ A Docker bridge network cannot use `10.77.0.80/32` as the whole subnet for this 
 | `velociraptor.hq-sec.local` | Velociraptor GUI |
 | `greenbone.hq-sec.local` | Greenbone Security Assistant |
 | `vault.hq-sec.local` | Vault UI/API |
+| `uptime.hq-sec.local` | Uptime Kuma |
+| `ollama.hq-sec.local` | Ollama local LLM API |
+| `reports.hq-sec.local` | Reports dashboard |
 
 ## Linux Host Resolver
 
@@ -59,6 +62,7 @@ If `docker0` is not the bridge interface name on your host, replace it with the 
 
 ## Files
 
-- `dns/Corefile`: CoreDNS server and upstream forwarding.
-- `dns/hosts.hq-sec`: FQDN-to-proxy records.
-- `proxy/Caddyfile`: HTTP virtual hosts and upstream service routes.
+- `The Hands/CoreDNS/Corefile`: CoreDNS server and upstream forwarding.
+- `The Hands/CoreDNS/hosts.hq-sec`: FQDN-to-proxy records.
+- `The Hands/FQDN proxy - Caddy/Caddyfile`: HTTP virtual hosts and upstream service routes.
+

@@ -25,7 +25,9 @@ Use service skills as focused runbooks:
 - `$vault-agent` for Vault initialization, policies, KV secrets, and monthly rotation.
 - `$backup-agent` for persistent Docker volume backup, integrity checks, and restore planning.
 - `$container-vulnerability-agent` for Trivy scan reports and image upgrade triage.
-- `$log-observer-agent` for Graylog routing, report dashboard, and daily AI log assessment.
+- `$log-observer-agent` for Graylog routing and the report dashboard.
+- `$ollama-agent` for local LLM log assessment, reports, attack-pattern analysis, hardening recommendations, and response planning.
+- `$uptime-agent` for Uptime Kuma service availability monitoring.
 - Use Vault and the repo README for cross-service secrets and monthly rotation.
 
 ## Tools
@@ -49,10 +51,10 @@ Use repo files as source of truth:
 - `docs/service-integration.md` for end-to-end data flow.
 - `docs/networking-dns.md` for FQDN and network behavior.
 - `README.md` for service, port, endpoint, DNS, and Vault operation summaries.
-- `dns/Corefile`, `dns/hosts.hq-sec`, and `proxy/Caddyfile` for local DNS and virtual hosts.
-- `vault/config`, `vault/policies`, and `vault/scripts` for secrets storage and monthly rotation.
-- `backup/scripts` and `backups` for recovery workflows.
-- `scanner/targets.txt`, `scanner/scripts`, and `reports/container-vulnerabilities` for vulnerability observation.
+- `The Hands/CoreDNS/Corefile`, `The Hands/CoreDNS/hosts.hq-sec`, and `The Hands/FQDN proxy - Caddy/Caddyfile` for local DNS and virtual hosts.
+- `The Shield/vault/config`, `The Shield/vault/policies`, and `The Shield/vault/scripts` for secrets storage and monthly rotation.
+- `The Hands/backup/scripts` and `The Hands/backups` for recovery workflows.
+- `The Shield/scanner/targets.txt`, `The Shield/scanner/scripts`, and `The Hands/reports/data/container-vulnerabilities` for vulnerability observation.
 
 ## Operating Loop
 
@@ -70,3 +72,4 @@ Never hide privileged exceptions. Call out packet capture capabilities, Docker s
 
 Never commit Vault tokens, unseal keys, root tokens, or rendered secrets.
 Never delete or overwrite Docker volumes without a verified backup and an explicit restore target.
+

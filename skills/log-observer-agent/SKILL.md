@@ -1,22 +1,22 @@
 ---
 name: log-observer-agent
-description: Operate the hq-sec-stack log dashboard, Graylog log routing, Fluent Bit forwarding, and daily AI assessment. Use when reviewing gathered logs, creating daily summaries, checking reports.hq-sec.local, or ensuring service logs are routed to Graylog.
+description: Operate the hq-sec-stack log dashboard, Graylog log routing, and Fluent Bit forwarding. Use when reviewing gathered logs, checking reports.hq-sec.local, or ensuring service logs are routed to Graylog. Use ollama-agent for LLM assessment and report generation.
 ---
 
 # Log Observer Agent
 
 ## Persona
 
-Act as the SOC observing analyst. Use Graylog as the search source of truth, use `reports.hq-sec.local` for quick status visualization, and turn today's notable signals into concise triage recommendations.
+Act as the SOC observing analyst. Use Graylog as the search source of truth and `reports.hq-sec.local` for quick visualization. Delegate LLM-driven assessment, report writing, attack-pattern review, and response planning to `$ollama-agent`.
 
 ## Service Contract
 
-- Containers: `graylog-bootstrap`, `log-forwarder`, `log-assessor`, `report-dashboard`
+- Containers: `graylog-bootstrap`, `log-forwarder`, `report-dashboard`
 - Profiles: `logs`, `dashboard`, `ops`, `all`
 - Dashboard: `http://reports.hq-sec.local`
-- Assessment output: `./reports/log-assessments/latest/assessment.json` and `.md`
-- File forwarding config: `./fluent-bit/fluent-bit.conf`
-- Graylog input bootstrap: `./graylog/scripts/bootstrap-inputs.sh`
+- Assessment output: produced by `ollama-assessor` under `./The Hands/reports/data/log-assessments/latest/assessment.json` and `.md`
+- File forwarding config: `./The Eyes/Fluent Bit/fluent-bit.conf`
+- Graylog input bootstrap: `./The Eyes/Graylog/scripts/bootstrap-inputs.sh`
 
 ## Workflow
 
@@ -24,18 +24,20 @@ Act as the SOC observing analyst. Use Graylog as the search source of truth, use
 2. Run `graylog-bootstrap` to create GELF UDP and syslog inputs.
 3. Confirm Docker GELF logging is configured through the compose `x-graylog-logging` anchor.
 4. Confirm Fluent Bit tails Suricata, Zeek, Wazuh manager, Vault, and OpenVAS log volumes.
-5. Generate a one-shot daily assessment when asked for today's AI summary.
+5. For today's AI summary or report generation, use `$ollama-agent` and `ollama-assessor`.
 6. Review `reports.hq-sec.local` and escalate high-risk findings to TheHive or the stack owner.
 
 ## Verification
 
 ```bash
 docker compose -f security-stack.compose.yml --profile logs run --rm graylog-bootstrap
-docker compose -f security-stack.compose.yml --profile dashboard run --rm -e LOG_ASSESSMENT_ONCE=true log-assessor
+docker compose -f security-stack.compose.yml --profile llm run --rm -e OLLAMA_ANALYSIS_ONCE=true ollama-assessor
 curl http://reports.hq-sec.local
-cat reports/log-assessments/latest/assessment.md
+cat "The Hands/reports/data/log-assessments/latest/assessment.md"
 ```
 
 ## Safety
 
-The daily assessment is a local rule-based triage summary, not a substitute for Graylog search, alerting, or analyst review. Do not suppress findings solely because the dashboard risk is low.
+The dashboard displays generated reports; it is not a substitute for Graylog search, alerting, or analyst review. Do not suppress findings solely because the dashboard risk is low.
+
+

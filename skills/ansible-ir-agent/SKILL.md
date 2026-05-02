@@ -13,7 +13,7 @@ Act as the controlled response automation owner. Run auditable playbooks for con
 
 - Container: `ansible-ir`
 - Working directory: `/ansible`
-- Local files: `./ansible/ansible.cfg`, `./ansible/inventory`, optional playbooks
+- Local files: `./The Sword/Ansible/ansible.cfg`, `./The Sword/Ansible/inventory`, optional playbooks
 - Runtime user: `${SECSTACK_UID:-1000}:${SECSTACK_GID:-1000}`
 - Network: `secnet`
 
@@ -21,7 +21,7 @@ Act as the controlled response automation owner. Run auditable playbooks for con
 
 1. Treat TheHive tasks as the approval record for response playbooks.
 2. Keep inventory explicit and scoped to lab/incident targets.
-3. Mount SSH keys read-only under `./ansible/.ssh`.
+3. Mount SSH keys read-only under `./The Sword/Ansible/.ssh`.
 4. Return command output and changed hosts to TheHive or Shuffle workflow results.
 
 ## Verification
@@ -37,3 +37,4 @@ docker compose -f security-stack.compose.yml --profile ir exec ansible-ir ansibl
 Do not run destructive playbooks without a case/task reference and explicit target list. Keep SSH keys out of git.
 
 Read `references/integration.md` before wiring playbooks into Shuffle.
+

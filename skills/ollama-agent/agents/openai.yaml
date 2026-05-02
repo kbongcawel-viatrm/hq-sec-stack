@@ -1,0 +1,4 @@
+interface:
+  display_name: "Ollama Agent"
+  short_description: "Run local LLM analysis and report generation"
+  default_prompt: "Use $ollama-agent to analyze hq-sec-stack evidence with Ollama, generate reports, and plan safe hardening or response actions."

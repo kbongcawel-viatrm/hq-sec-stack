@@ -28,10 +28,10 @@ jobs:
         run: |
           bash -n scripts/start-stack.sh
           bash -n scripts/killswitch.sh
-          bash -n backup/scripts/backup-volumes.sh
-          bash -n backup/scripts/restore-volume.sh
-          bash -n scanner/scripts/scan-containers.sh
-          bash -n vault/scripts/monthly-rotate.sh
+          bash -n "The Hands/backup/scripts/backup-volumes.sh"
+          bash -n "The Hands/backup/scripts/restore-volume.sh"
+          bash -n "The Shield/scanner/scripts/scan-containers.sh"
+          bash -n "The Shield/vault/scripts/monthly-rotate.sh"
 
       - name: Pull critical profile images
         run: docker compose -f security-stack.compose.yml --profile dns --profile secrets --profile brain pull
@@ -58,3 +58,5 @@ jobs:
             git pull --ff-only
             cp .env.example .env.example.ci-reference
             SECSTACK_PROFILES="${{ vars.SECSTACK_PROFILES || 'dns secrets brain ops' }}" sh scripts/start-stack.sh
+
+

@@ -14,7 +14,7 @@ Act as the incident case manager. Keep alerts organized into cases, preserve obs
 - Container: `thehive`
 - Internal endpoint: `http://thehive:9000`
 - Host endpoint: `http://localhost:${THEHIVE_HTTP_PORT:-9001}`
-- Config: `./thehive/application.conf`
+- Config: `./The Eyes/thehive/application.conf`
 - Volume: `thehive-data`
 
 ## Workflow
@@ -36,3 +36,5 @@ docker logs thehive --tail 100
 The included `application.conf` is lab-only and uses local storage. Production needs externalized secrets, durable database/storage, TLS, auth policy, and backups.
 
 Read `references/integration.md` when changing case intake or automation hooks.
+
+

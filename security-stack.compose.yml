@@ -38,8 +38,8 @@ services:
       - "${SECDNS_HOST_IP:-127.0.0.1}:${SECDNS_PORT:-1053}:53/udp"
       - "${SECDNS_HOST_IP:-127.0.0.1}:${SECDNS_PORT:-1053}:53/tcp"
     volumes:
-      - ./dns/Corefile:/etc/coredns/Corefile:ro
-      - ./dns/hosts.hq-sec:/etc/coredns/hosts.hq-sec:ro
+      - "./The Hands/CoreDNS/Corefile:/etc/coredns/Corefile:ro"
+      - "./The Hands/CoreDNS/hosts.hq-sec:/etc/coredns/hosts.hq-sec:ro"
     networks:
       secnet:
         ipv4_address: "${SECDNS_IPV4:-10.77.0.53}"
@@ -58,7 +58,7 @@ services:
     ports:
       - "${FQDN_HTTP_HOST_IP:-0.0.0.0}:${FQDN_HTTP_PORT:-80}:80"
     volumes:
-      - ./proxy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - "./The Hands/FQDN proxy - Caddy/Caddyfile:/etc/caddy/Caddyfile:ro"
       - fqdn-proxy-data:/data
       - fqdn-proxy-config:/config
     networks:
@@ -77,8 +77,8 @@ services:
     container_name: report-dashboard
     profiles: ["ops", "dashboard", "all"]
     volumes:
-      - ./dashboard:/usr/share/caddy:ro
-      - ./reports:/usr/share/caddy/reports:ro
+      - "./The Hands/reports/dashboard-ui:/usr/share/caddy:ro"
+      - "./The Hands/reports/data:/usr/share/caddy/reports:ro"
     networks:
       - secnet
     restart: unless-stopped
@@ -89,13 +89,114 @@ services:
       retries: 5
     logging: *graylog-logging
 
+  ollama:
+    image: ollama/ollama:${OLLAMA_VERSION:-0.20.7}
+    container_name: ollama
+    profiles: ["ops", "dashboard", "llm", "all"]
+    volumes:
+      - ollama-data:/root/.ollama
+    networks:
+      - secnet
+    ports:
+      - "${STACK_BIND_IP:-0.0.0.0}:${OLLAMA_PORT:-11434}:11434"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    logging: *graylog-logging
+
+  ollama-model-pull:
+    image: ollama/ollama:${OLLAMA_VERSION:-0.20.7}
+    container_name: ollama-model-pull
+    profiles: ["ops", "dashboard", "llm", "all"]
+    environment:
+      OLLAMA_HOST: "${OLLAMA_URL:-http://ollama:11434}"
+      OLLAMA_MODEL: "${OLLAMA_MODEL:-llama3.2}"
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        until ollama list >/dev/null 2>&1; do
+          sleep 5
+        done
+        ollama pull "$${OLLAMA_MODEL}"
+    networks:
+      - secnet
+    restart: "no"
+    depends_on:
+      ollama:
+        condition: service_healthy
+    logging: *graylog-logging
+
+  uptime-kuma:
+    image: louislam/uptime-kuma:${UPTIME_KUMA_VERSION:-1.23.16}
+    container_name: uptime-kuma
+    profiles: ["ops", "monitor", "all"]
+    volumes:
+      - uptime-kuma-data:/app/data
+    networks:
+      - secnet
+    ports:
+      - "${STACK_BIND_IP:-0.0.0.0}:${UPTIME_KUMA_PORT:-3002}:3001"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "node extra/healthcheck.js"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    logging: *graylog-logging
+
+  uptime-kuma-sync:
+    image: python:${PYTHON_ALPINE_VERSION:-3.12-alpine}
+    container_name: uptime-kuma-sync
+    profiles: ["ops", "monitor", "all"]
+    environment:
+      UPTIME_KUMA_URL: "${UPTIME_KUMA_URL:-http://uptime-kuma:3001}"
+      UPTIME_KUMA_USERNAME: "${UPTIME_KUMA_USERNAME:-admin}"
+      UPTIME_KUMA_PASSWORD: "${UPTIME_KUMA_PASSWORD:-}"
+      UPTIME_KUMA_SYNC_INTERVAL_SECONDS: "${UPTIME_KUMA_SYNC_INTERVAL_SECONDS:-21600}"
+      UPTIME_KUMA_SYNC_RUN_ON_STARTUP: "${UPTIME_KUMA_SYNC_RUN_ON_STARTUP:-true}"
+    volumes:
+      - "./The Eyes/Uptime-Kuma/monitors.yml:/uptime-kuma/monitors.yml:ro"
+      - "./The Eyes/Uptime-Kuma/scripts:/uptime-kuma/scripts:ro"
+    entrypoint: ["python", "/uptime-kuma/scripts/sync-monitors.py"]
+    networks:
+      - secnet
+    restart: unless-stopped
+    depends_on:
+      uptime-kuma:
+        condition: service_healthy
+    logging: *graylog-logging
+
+  container-health-exporter:
+    image: python:${PYTHON_ALPINE_VERSION:-3.12-alpine}
+    container_name: container-health-exporter
+    profiles: ["ops", "monitor", "all"]
+    volumes:
+      - "./The Eyes/Uptime-Kuma/scripts/container-health-exporter.py:/container-health-exporter.py:ro"
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    entrypoint: ["python", "/container-health-exporter.py"]
+    networks:
+      - secnet
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "python - <<'PY'\nimport urllib.request\nurllib.request.urlopen('http://127.0.0.1:8080/healthz', timeout=3).read()\nPY"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    logging: *graylog-logging
+
   log-forwarder:
     image: fluent/fluent-bit:${FLUENT_BIT_VERSION:-3.2.10}
     container_name: log-forwarder
     profiles: ["ops", "logs", "all"]
     volumes:
-      - ./fluent-bit/fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf:ro
-      - ./fluent-bit/parsers.conf:/fluent-bit/etc/parsers.conf:ro
+      - "./The Eyes/Fluent Bit/fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf:ro"
+      - "./The Eyes/Fluent Bit/parsers.conf:/fluent-bit/etc/parsers.conf:ro"
       - fluent-bit-state:/fluent-bit/state
       - suricata-logs:/logs/suricata:ro
       - zeek-logs:/logs/zeek:ro
@@ -121,7 +222,7 @@ services:
       GRAYLOG_GELF_UDP_PORT: "${GRAYLOG_GELF_UDP_PORT:-12201}"
       GRAYLOG_SYSLOG_INPUT_PORT: "1514"
     volumes:
-      - ./graylog/scripts:/graylog/scripts:ro
+      - "./The Eyes/Graylog/scripts:/graylog/scripts:ro"
     entrypoint: ["/bin/sh", "/graylog/scripts/bootstrap-inputs.sh"]
     networks:
       - secnet
@@ -131,25 +232,38 @@ services:
         condition: service_healthy
     logging: *graylog-logging
 
-  log-assessor:
+  ollama-assessor:
     image: python:${PYTHON_ALPINE_VERSION:-3.12-alpine}
-    container_name: log-assessor
-    profiles: ["ops", "dashboard", "all"]
+    container_name: ollama-assessor
+    profiles: ["ops", "dashboard", "llm", "all"]
     environment:
-      LOG_ASSESSMENT_INTERVAL_SECONDS: "${LOG_ASSESSMENT_INTERVAL_SECONDS:-3600}"
-      LOG_ASSESSMENT_RUN_ON_STARTUP: "${LOG_ASSESSMENT_RUN_ON_STARTUP:-true}"
+      OLLAMA_URL: "${OLLAMA_URL:-http://ollama:11434}"
+      OLLAMA_MODEL: "${OLLAMA_MODEL:-llama3.2}"
+      OLLAMA_ANALYSIS_CRON: "${OLLAMA_ANALYSIS_CRON:-0 2 * * *}"
+      OLLAMA_ANALYSIS_RUN_ON_STARTUP: "${OLLAMA_ANALYSIS_RUN_ON_STARTUP:-true}"
+      OLLAMA_ANALYSIS_MAX_LOG_LINES: "${OLLAMA_ANALYSIS_MAX_LOG_LINES:-2500}"
+      OLLAMA_ANALYSIS_CONTEXT_CHARS: "${OLLAMA_ANALYSIS_CONTEXT_CHARS:-24000}"
+      GRAYLOG_API_URL: "${GRAYLOG_API_URL:-http://graylog:9000/api}"
+      GRAYLOG_ROOT_USERNAME: "${GRAYLOG_ROOT_USERNAME:-admin}"
+      GRAYLOG_ROOT_PASSWORD: "${GRAYLOG_ROOT_PASSWORD:-admin}"
     volumes:
-      - ./assessment/scripts:/assessment/scripts:ro
-      - ./reports:/reports
+      - "./The Brain/Ollama/scripts:/ollama/scripts:ro"
+      - "./The Hands/reports/data:/reports"
+      - "./The Hands/reports/data/container-vulnerabilities:/evidence/container-vulnerabilities:ro"
       - suricata-logs:/logs/suricata:ro
       - zeek-logs:/logs/zeek:ro
       - wazuh-manager-logs:/logs/wazuh-manager:ro
       - vault-logs:/logs/vault:ro
       - greenbone-openvas-log-data:/logs/openvas:ro
-    entrypoint: ["python", "/assessment/scripts/assess_today.py"]
+    entrypoint: ["python", "/ollama/scripts/analyze_stack.py"]
     networks:
       - secnet
     restart: unless-stopped
+    depends_on:
+      ollama-model-pull:
+        condition: service_completed_successfully
+      graylog:
+        condition: service_healthy
     logging: *graylog-logging
 
   ############################################################
@@ -166,10 +280,12 @@ services:
       VAULT_ADDR: "http://0.0.0.0:8200"
     command: ["server", "-config=/vault/config/vault.hcl"]
     ports:
-      - "${VAULT_HTTP_PORT:-8200}:8200"
+      - "${STACK_BIND_IP:-0.0.0.0}:${VAULT_HTTP_PORT:-8200}:8200"
     volumes:
-      - ./vault/config:/vault/config:ro
-      - ./vault/policies:/vault/policies:ro
+      - "./The Shield/vault/config:/vault/config:ro"
+      - "./The Shield/vault/policies:/vault/policies:ro"
+      - "./The Shield/vault/secrets:/vault/secrets:ro"
+      - "./The Shield/vault/scripts:/vault/scripts:ro"
       - vault-data:/vault/file
       - vault-logs:/vault/logs
     networks:
@@ -195,7 +311,8 @@ services:
       VAULT_ROTATION_RUN_ON_STARTUP: "${VAULT_ROTATION_RUN_ON_STARTUP:-false}"
       VAULT_KV_MOUNT: "${VAULT_KV_MOUNT:-secret}"
     volumes:
-      - ./vault/scripts:/vault/scripts:ro
+      - "./The Shield/vault/scripts:/vault/scripts:ro"
+      - "./The Shield/vault/secrets:/vault/secrets:ro"
       - vault-rotator-state:/vault/state
     entrypoint: ["/bin/sh", "/vault/scripts/monthly-rotate.sh"]
     networks:
@@ -218,13 +335,14 @@ services:
       BACKUP_RETENTION_DAYS: "${BACKUP_RETENTION_DAYS:-30}"
       BACKUP_RUN_ON_STARTUP: "${BACKUP_RUN_ON_STARTUP:-true}"
     volumes:
-      - ./backup/scripts:/backup/scripts:ro
-      - ./backups:/backups
+      - "./The Hands/backup/scripts:/backup/scripts:ro"
+      - "./The Hands/backups:/backups"
       - fqdn-proxy-data:/sources/fqdn-proxy-data:ro
       - fqdn-proxy-config:/sources/fqdn-proxy-config:ro
       - vault-data:/sources/vault-data:ro
       - vault-logs:/sources/vault-logs:ro
       - vault-rotator-state:/sources/vault-rotator-state:ro
+      - ollama-data:/sources/ollama-data:ro
       - wazuh-indexer-data:/sources/wazuh-indexer-data:ro
       - wazuh-manager-data:/sources/wazuh-manager-data:ro
       - wazuh-manager-logs:/sources/wazuh-manager-logs:ro
@@ -250,6 +368,7 @@ services:
       - greenbone-gsa-data:/sources/greenbone-gsa-data:ro
       - greenbone-nginx-config:/sources/greenbone-nginx-config:ro
       - greenbone-nginx-certificates:/sources/greenbone-nginx-certificates:ro
+      - uptime-kuma-data:/sources/uptime-kuma-data:ro
     entrypoint: ["/bin/sh", "/backup/scripts/backup-volumes.sh"]
     restart: unless-stopped
     logging: *graylog-logging
@@ -264,9 +383,9 @@ services:
       TRIVY_EXIT_CODE: "${TRIVY_EXIT_CODE:-0}"
       TRIVY_RUN_ON_STARTUP: "${TRIVY_RUN_ON_STARTUP:-true}"
     volumes:
-      - ./scanner/scripts:/scanner/scripts:ro
-      - ./scanner/targets.txt:/scanner/targets.txt:ro
-      - ./reports/container-vulnerabilities:/reports
+      - "./The Shield/scanner/scripts:/scanner/scripts:ro"
+      - "./The Shield/scanner/targets.txt:/scanner/targets.txt:ro"
+      - "./The Hands/reports/data/container-vulnerabilities:/reports"
       - trivy-cache:/root/.cache/trivy
     entrypoint: ["/bin/sh", "/scanner/scripts/scan-containers.sh"]
     restart: unless-stopped
@@ -290,7 +409,7 @@ services:
         soft: -1
         hard: -1
     ports:
-      - "${WAZUH_INDEXER_PORT:-9200}:9200"
+      - "${STACK_BIND_IP:-0.0.0.0}:${WAZUH_INDEXER_PORT:-9200}:9200"
     volumes:
       - wazuh-indexer-data:/var/lib/wazuh-indexer
     networks:
@@ -312,9 +431,9 @@ services:
       INDEXER_URL: "https://wazuh-indexer:9200"
       FILEBEAT_SSL_VERIFICATION_MODE: "${WAZUH_FILEBEAT_SSL_VERIFICATION_MODE:-none}"
     ports:
-      - "${WAZUH_EVENTS_PORT:-1514}:1514/udp"
-      - "${WAZUH_ENROLLMENT_PORT:-1515}:1515"
-      - "${WAZUH_API_PORT:-55000}:55000"
+      - "${STACK_BIND_IP:-0.0.0.0}:${WAZUH_EVENTS_PORT:-1514}:1514/udp"
+      - "${STACK_BIND_IP:-0.0.0.0}:${WAZUH_ENROLLMENT_PORT:-1515}:1515"
+      - "${STACK_BIND_IP:-0.0.0.0}:${WAZUH_API_PORT:-55000}:55000"
     volumes:
       - wazuh-manager-data:/var/ossec/data
       - wazuh-manager-logs:/var/ossec/logs
@@ -342,7 +461,7 @@ services:
       DASHBOARD_USERNAME: "${WAZUH_DASHBOARD_USERNAME:-admin}"
       DASHBOARD_PASSWORD: "${WAZUH_DASHBOARD_PASSWORD:-SecretPassword}"
     ports:
-      - "${WAZUH_DASHBOARD_PORT:-5601}:5601"
+      - "${STACK_BIND_IP:-0.0.0.0}:${WAZUH_DASHBOARD_PORT:-5601}:5601"
     networks:
       - secnet
     depends_on:
@@ -426,10 +545,10 @@ services:
       graylog-datanode:
         condition: service_healthy
     ports:
-      - "${GRAYLOG_HTTP_PORT:-9000}:9000"
-      - "${GRAYLOG_GELF_UDP_PORT:-12201}:12201/udp"
-      - "${GRAYLOG_SYSLOG_TCP_PORT:-5514}:1514/tcp"
-      - "${GRAYLOG_SYSLOG_UDP_PORT:-5514}:1514/udp"
+      - "${STACK_BIND_IP:-0.0.0.0}:${GRAYLOG_HTTP_PORT:-9000}:9000"
+      - "${STACK_BIND_IP:-0.0.0.0}:${GRAYLOG_GELF_UDP_PORT:-12201}:12201/udp"
+      - "${STACK_BIND_IP:-0.0.0.0}:${GRAYLOG_SYSLOG_TCP_PORT:-5514}:1514/tcp"
+      - "${STACK_BIND_IP:-0.0.0.0}:${GRAYLOG_SYSLOG_UDP_PORT:-5514}:1514/udp"
     volumes:
       - graylog-data:/usr/share/graylog/data
     networks:
@@ -466,7 +585,26 @@ services:
       - "${SURICATA_RUN_GROUP:-suricata}"
     volumes:
       - suricata-logs:/var/log/suricata
-      - ./suricata/rules:/var/lib/suricata/rules:ro
+      - "./The Sword/Suricata/suricata.yaml:/etc/suricata/suricata.yaml:ro"
+      - "./The Sword/Suricata/rules:/var/lib/suricata/rules:ro"
+    restart: unless-stopped
+    logging: *graylog-logging
+
+  suricata-rules-update:
+    image: jasonish/suricata:${SURICATA_VERSION:-7.0}
+    container_name: suricata-rules-update
+    profiles: ["network", "all"]
+    environment:
+      SURICATA_UPDATE_INTERVAL_SECONDS: "${SURICATA_UPDATE_INTERVAL_SECONDS:-86400}"
+      SURICATA_UPDATE_RUN_ON_STARTUP: "${SURICATA_UPDATE_RUN_ON_STARTUP:-true}"
+      SURICATA_UPDATE_ONCE: "${SURICATA_UPDATE_ONCE:-false}"
+      SURICATA_UPDATE_ENABLE_SOURCES: "${SURICATA_UPDATE_ENABLE_SOURCES:-et/open oisf/trafficid ptresearch/attackdetection sslbl/ssl-fp-blacklist sslbl/ja3-fingerprints abuse.ch/sslbl-c2 abuse.ch/urlhaus}"
+    entrypoint: ["/bin/sh", "/suricata-update/scripts/update-rules.sh"]
+    volumes:
+      - suricata-logs:/var/log/suricata
+      - "./The Sword/Suricata/update:/suricata-update:ro"
+      - "./The Sword/Suricata/rules:/local-rules:ro"
+      - "./The Sword/Suricata/rules:/var/lib/suricata/rules"
     restart: unless-stopped
     logging: *graylog-logging
 
@@ -494,11 +632,12 @@ services:
     profiles: ["ir", "all"]
     environment:
       JVM_OPTS: "${THEHIVE_JVM_OPTS:--Xms512m -Xmx1g}"
+      THEHIVE_PLAY_SECRET: "${THEHIVE_PLAY_SECRET:-CHANGE_ME_THEHIVE_LAB_SECRET_KEY_CHANGE_ME}"
     ports:
-      - "${THEHIVE_HTTP_PORT:-9001}:9000"
+      - "${STACK_BIND_IP:-0.0.0.0}:${THEHIVE_HTTP_PORT:-9001}:9000"
     volumes:
       - thehive-data:/opt/thp/thehive/data
-      - ./thehive/application.conf:/etc/thehive/application.conf:ro
+      - "./The Eyes/thehive/application.conf:/etc/thehive/application.conf:ro"
     networks:
       - secnet
     restart: unless-stopped
@@ -519,9 +658,10 @@ services:
       SHUFFLE_FILE_LOCATION: /shuffle/files
       SHUFFLE_OPENSEARCH_URL: "http://graylog-datanode:9200"
       BASE_URL: "${SHUFFLE_BASE_URL:-http://localhost:3001}"
+      SHUFFLE_APP_SECRET: "${SHUFFLE_APP_SECRET:-CHANGE_ME_SHUFFLE_LAB_SECRET}"
     ports:
-      - "${SHUFFLE_FRONTEND_PORT:-3001}:3001"
-      - "${SHUFFLE_BACKEND_PORT:-5001}:5001"
+      - "${STACK_BIND_IP:-0.0.0.0}:${SHUFFLE_FRONTEND_PORT:-3001}:3001"
+      - "${STACK_BIND_IP:-0.0.0.0}:${SHUFFLE_BACKEND_PORT:-5001}:5001"
     volumes:
       - shuffle-data:/shuffle
       - /var/run/docker.sock:/var/run/docker.sock
@@ -540,9 +680,11 @@ services:
     image: xboarder56/velociraptor:${VELOCIRAPTOR_VERSION:-0.74.2}
     container_name: velociraptor
     profiles: ["ir", "all"]
+    environment:
+      VELOCIRAPTOR_ADMIN_PASSWORD: "${VELOCIRAPTOR_ADMIN_PASSWORD:-admin}"
     ports:
-      - "${VELOCIRAPTOR_GUI_PORT:-8889}:8889"
-      - "${VELOCIRAPTOR_FRONTEND_PORT:-8000}:8000"
+      - "${STACK_BIND_IP:-0.0.0.0}:${VELOCIRAPTOR_GUI_PORT:-8889}:8889"
+      - "${STACK_BIND_IP:-0.0.0.0}:${VELOCIRAPTOR_FRONTEND_PORT:-8000}:8000"
     volumes:
       - velociraptor-data:/velociraptor
     networks:
@@ -566,8 +708,8 @@ services:
       ANSIBLE_CONFIG: /ansible/ansible.cfg
       HOME: /ansible
     volumes:
-      - ./ansible:/ansible
-      - ./ansible/.ssh:/ansible/.ssh:ro
+      - "./The Sword/Ansible:/ansible"
+      - "./The Sword/Ansible/.ssh:/ansible/.ssh:ro"
     entrypoint: ["sleep", "infinity"]
     networks:
       - secnet
@@ -593,6 +735,7 @@ services:
 
   vulnerability-tests:
     image: registry.community.greenbone.net/community/vulnerability-tests:${GREENBONE_DATA_TAG:-latest}
+    container_name: vulnerability-tests
     profiles: ["vuln", "all"]
     environment:
       FEED_RELEASE: "${GREENBONE_FEED_RELEASE:-24.10}"
@@ -605,6 +748,7 @@ services:
 
   notus-data:
     image: registry.community.greenbone.net/community/notus-data:${GREENBONE_DATA_TAG:-latest}
+    container_name: notus-data
     profiles: ["vuln", "all"]
     environment:
       KEEP_ALIVE: "1"
@@ -616,6 +760,7 @@ services:
 
   scap-data:
     image: registry.community.greenbone.net/community/scap-data:${GREENBONE_DATA_TAG:-latest}
+    container_name: scap-data
     profiles: ["vuln", "all"]
     environment:
       KEEP_ALIVE: "1"
@@ -627,6 +772,7 @@ services:
 
   cert-bund-data:
     image: registry.community.greenbone.net/community/cert-bund-data:${GREENBONE_DATA_TAG:-latest}
+    container_name: cert-bund-data
     profiles: ["vuln", "all"]
     environment:
       KEEP_ALIVE: "1"
@@ -638,6 +784,7 @@ services:
 
   dfn-cert-data:
     image: registry.community.greenbone.net/community/dfn-cert-data:${GREENBONE_DATA_TAG:-latest}
+    container_name: dfn-cert-data
     profiles: ["vuln", "all"]
     environment:
       KEEP_ALIVE: "1"
@@ -652,6 +799,7 @@ services:
 
   data-objects:
     image: registry.community.greenbone.net/community/data-objects:${GREENBONE_DATA_TAG:-latest}
+    container_name: data-objects
     profiles: ["vuln", "all"]
     environment:
       FEED_RELEASE: "${GREENBONE_FEED_RELEASE:-24.10}"
@@ -664,6 +812,7 @@ services:
 
   report-formats:
     image: registry.community.greenbone.net/community/report-formats:${GREENBONE_DATA_TAG:-latest}
+    container_name: report-formats
     profiles: ["vuln", "all"]
     environment:
       FEED_RELEASE: "${GREENBONE_FEED_RELEASE:-24.10}"
@@ -679,6 +828,7 @@ services:
 
   gpg-data:
     image: registry.community.greenbone.net/community/gpg-data:${GREENBONE_DATA_TAG:-latest}
+    container_name: gpg-data
     profiles: ["vuln", "all"]
     volumes:
       - greenbone-gpg-data:/mnt
@@ -688,6 +838,7 @@ services:
 
   redis-server:
     image: registry.community.greenbone.net/community/redis-server:${GREENBONE_IMAGE_TAG:-latest}
+    container_name: redis-server
     profiles: ["vuln", "all"]
     restart: unless-stopped
     volumes:
@@ -698,6 +849,7 @@ services:
 
   pg-gvm-migrator:
     image: registry.community.greenbone.net/community/pg-gvm-migrator:${GREENBONE_IMAGE_TAG:-stable}
+    container_name: pg-gvm-migrator
     profiles: ["vuln", "all"]
     volumes:
       - greenbone-psql-data:/var/lib/postgresql
@@ -708,6 +860,7 @@ services:
 
   pg-gvm:
     image: registry.community.greenbone.net/community/pg-gvm:${GREENBONE_IMAGE_TAG:-stable}
+    container_name: pg-gvm
     profiles: ["vuln", "all"]
     restart: unless-stopped
     volumes:
@@ -722,8 +875,12 @@ services:
 
   gvmd:
     image: registry.community.greenbone.net/community/gvmd:${GREENBONE_IMAGE_TAG:-stable}
+    container_name: gvmd
     profiles: ["vuln", "all"]
     restart: unless-stopped
+    environment:
+      GREENBONE_ADMIN_USER: "${GREENBONE_ADMIN_USER:-admin}"
+      GREENBONE_ADMIN_PASSWORD: "${GREENBONE_ADMIN_PASSWORD:-admin}"
     volumes:
       - greenbone-gvmd-data:/var/lib/gvm
       - greenbone-scap-data:/var/lib/gvm/scap-data/
@@ -753,6 +910,7 @@ services:
 
   gsa:
     image: registry.community.greenbone.net/community/gsa:${GREENBONE_GSA_TAG:-stable-slim}
+    container_name: gsa
     profiles: ["vuln", "all"]
     environment:
       MOUNT_PATH: /mnt/web
@@ -768,6 +926,7 @@ services:
 
   gsad:
     image: registry.community.greenbone.net/community/gsad:${GREENBONE_IMAGE_TAG:-stable}
+    container_name: gsad
     profiles: ["vuln", "all"]
     restart: unless-stopped
     environment:
@@ -785,6 +944,7 @@ services:
 
   gvm-config:
     image: registry.community.greenbone.net/community/gvm-config:${GREENBONE_CONFIG_TAG:-latest}
+    container_name: gvm-config
     profiles: ["vuln", "all"]
     environment:
       ENABLE_NGINX_CONFIG: "true"
@@ -798,11 +958,12 @@ services:
 
   greenbone-nginx:
     image: registry.community.greenbone.net/community/nginx:${GREENBONE_CONFIG_TAG:-latest}
+    container_name: greenbone-nginx
     profiles: ["vuln", "all"]
     restart: unless-stopped
     ports:
-      - "${GREENBONE_HTTPS_PORT:-9443}:443"
-      - "${GREENBONE_GSA_PORT:-9392}:9392"
+      - "${STACK_BIND_IP:-0.0.0.0}:${GREENBONE_HTTPS_PORT:-9443}:443"
+      - "${STACK_BIND_IP:-0.0.0.0}:${GREENBONE_GSA_PORT:-9392}:9392"
     volumes:
       - greenbone-nginx-config:/etc/nginx/conf.d:ro
       - greenbone-nginx-certificates:/etc/nginx/certs:ro
@@ -820,6 +981,7 @@ services:
 
   configure-openvas:
     image: registry.community.greenbone.net/community/openvas-scanner:${GREENBONE_IMAGE_TAG:-stable}
+    container_name: configure-openvas
     profiles: ["vuln", "all"]
     volumes:
       - greenbone-openvas-data:/mnt
@@ -840,6 +1002,7 @@ services:
 
   openvas:
     image: registry.community.greenbone.net/community/openvas-scanner:${GREENBONE_IMAGE_TAG:-stable}
+    container_name: openvas
     profiles: ["vuln", "all"]
     volumes:
       - greenbone-openvas-data:/etc/openvas
@@ -859,6 +1022,7 @@ services:
 
   openvasd:
     image: registry.community.greenbone.net/community/openvas-scanner:${GREENBONE_IMAGE_TAG:-stable}
+    container_name: openvasd
     profiles: ["vuln", "all"]
     restart: unless-stopped
     environment:
@@ -887,6 +1051,7 @@ services:
 
   ospd-openvas:
     image: registry.community.greenbone.net/community/ospd-openvas:${GREENBONE_IMAGE_TAG:-stable}
+    container_name: ospd-openvas
     profiles: ["vuln", "all"]
     restart: unless-stopped
     hostname: ospd-openvas.local
@@ -932,6 +1097,7 @@ services:
 
   gvm-tools:
     image: registry.community.greenbone.net/community/gvm-tools:${GREENBONE_IMAGE_TAG:-latest}
+    container_name: gvm-tools
     profiles: ["vuln", "all"]
     volumes:
       - greenbone-gvmd-socket:/run/gvmd
@@ -959,6 +1125,8 @@ volumes:
   vault-rotator-state:
   trivy-cache:
   fluent-bit-state:
+  uptime-kuma-data:
+  ollama-data:
   wazuh-indexer-data:
   wazuh-manager-data:
   wazuh-manager-logs:
@@ -988,3 +1156,5 @@ volumes:
   greenbone-gsa-data:
   greenbone-nginx-config:
   greenbone-nginx-certificates:
+
+

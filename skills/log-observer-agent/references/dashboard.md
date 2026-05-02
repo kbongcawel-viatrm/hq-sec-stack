@@ -9,8 +9,8 @@ http://reports.hq-sec.local
 Generated files:
 
 ```text
-reports/log-assessments/latest/assessment.json
-reports/log-assessments/latest/assessment.md
+The Hands/reports/data/log-assessments/latest/assessment.json
+The Hands/reports/data/log-assessments/latest/assessment.md
 ```
 
 One-shot assessment:
@@ -24,3 +24,4 @@ Graylog input bootstrap:
 ```bash
 docker compose -f security-stack.compose.yml --profile logs run --rm graylog-bootstrap
 ```
+

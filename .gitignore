@@ -1,8 +1,16 @@
 .env
-backups/
-reports/container-vulnerabilities/
-reports/log-assessments/*/
-!reports/log-assessments/latest/
-!reports/log-assessments/latest/assessment.json
-!reports/log-assessments/latest/assessment.md
+.env.vault
+The Hands/backups/
+The Hands/reports/data/container-vulnerabilities/
+The Hands/reports/data/log-assessments/*/
+!The Hands/reports/data/log-assessments/latest/
+!The Hands/reports/data/log-assessments/latest/assessment.json
+!The Hands/reports/data/log-assessments/latest/assessment.md
 *.local
+__pycache__/
+*.pyc
+The Sword/Suricata/rules/suricata.rules
+The Sword/Suricata/rules/*.config
+The Sword/Suricata/rules/*.backup
+The Sword/Suricata/rules/.cache/
+

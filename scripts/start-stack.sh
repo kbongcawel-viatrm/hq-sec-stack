@@ -8,13 +8,22 @@ PULL_IMAGES="${PULL_IMAGES:-true}"
 APPLY_SYSCTL="${APPLY_SYSCTL:-true}"
 WAIT_HEALTH="${WAIT_HEALTH:-true}"
 HEALTH_TIMEOUT_SECONDS="${HEALTH_TIMEOUT_SECONDS:-900}"
+USE_VAULT_ENV="${USE_VAULT_ENV:-true}"
 
 log() {
   printf '%s %s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "$*"
 }
 
 compose() {
-  docker compose -f "${COMPOSE_FILE}" "$@"
+  env_args=""
+  if [ -f ".env" ]; then
+    env_args="${env_args} --env-file .env"
+  fi
+  if [ -f ".env.vault" ]; then
+    env_args="${env_args} --env-file .env.vault"
+  fi
+  # shellcheck disable=SC2086
+  docker compose ${env_args} -f "${COMPOSE_FILE}" "$@"
 }
 
 profile_args() {
@@ -38,7 +47,26 @@ prepare_workspace() {
     log "created .env from .env.example; review secrets before exposing services"
   fi
 
-  mkdir -p backups reports/container-vulnerabilities ansible/.ssh suricata/rules
+  mkdir -p "The Hands/backups" "The Hands/reports/data/container-vulnerabilities" "The Sword/Ansible/.ssh" "The Sword/Suricata/rules"
+}
+
+render_vault_env() {
+  if [ "${USE_VAULT_ENV}" != "true" ]; then
+    return 0
+  fi
+
+  if [ -z "${VAULT_TOKEN:-}" ]; then
+    log "Vault env render skipped; set VAULT_TOKEN or run 'The Shield/vault/scripts/render-service-env.sh' manually"
+    return 0
+  fi
+
+  if command -v vault >/dev/null 2>&1; then
+    VAULT_ADDR="${VAULT_ADDR:-http://127.0.0.1:${VAULT_HTTP_PORT:-8200}}" \
+      VAULT_KV_MOUNT="${VAULT_KV_MOUNT:-secret}" \
+      sh "The Shield/vault/scripts/render-service-env.sh" .env.vault || log "Vault env render failed; continuing with existing env values"
+  else
+    log "Vault CLI unavailable; skipping .env.vault render"
+  fi
 }
 
 apply_sysctl() {
@@ -87,6 +115,7 @@ wait_for_health() {
 main() {
   require_command docker
   prepare_workspace
+  render_vault_env
   apply_sysctl
 
   log "validating compose profiles: ${PROFILES}"
@@ -105,3 +134,5 @@ main() {
 }
 
 main "$@"
+
+

@@ -1,0 +1,30 @@
+<Sysmon schemaversion="4.90">
+  <HashAlgorithms>sha256</HashAlgorithms>
+  <EventFiltering>
+    <ProcessCreate onmatch="include">
+      <Image condition="contains">powershell.exe</Image>
+      <Image condition="contains">pwsh.exe</Image>
+      <CommandLine condition="contains">-enc</CommandLine>
+      <CommandLine condition="contains">DownloadString</CommandLine>
+      <CommandLine condition="contains">Invoke-Expression</CommandLine>
+      <CommandLine condition="contains">FromBase64String</CommandLine>
+    </ProcessCreate>
+    <NetworkConnect onmatch="include">
+      <Image condition="contains">powershell.exe</Image>
+      <Image condition="contains">pwsh.exe</Image>
+      <DestinationPort condition="is">4444</DestinationPort>
+      <DestinationPort condition="is">8080</DestinationPort>
+      <DestinationPort condition="is">9001</DestinationPort>
+    </NetworkConnect>
+    <FileCreate onmatch="include">
+      <TargetFilename condition="contains">\Startup\</TargetFilename>
+      <TargetFilename condition="contains">\System32\drivers\etc\hosts</TargetFilename>
+      <TargetFilename condition="contains">\Temp\</TargetFilename>
+    </FileCreate>
+    <RegistryEvent onmatch="include">
+      <TargetObject condition="contains">\CurrentVersion\Run</TargetObject>
+      <TargetObject condition="contains">\CurrentVersion\RunOnce</TargetObject>
+      <TargetObject condition="contains">\Winlogon\Shell</TargetObject>
+    </RegistryEvent>
+  </EventFiltering>
+</Sysmon>
