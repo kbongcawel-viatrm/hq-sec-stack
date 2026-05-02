@@ -61,7 +61,7 @@ services:
     environment:
       CADDY_CROWDSEC_API_KEY: "${CADDY_CROWDSEC_API_KEY}"
     ports:
-      - "${FQDN_HTTP_HOST_IP:-0.0.0.0}:${FQDN_HTTP_PORT:-80}:80"
+      - "${FQDN_HTTP_HOST_IP:-127.0.0.1}:${FQDN_HTTP_PORT:-80}:80"
     volumes:
       - "./The Hands/FQDN proxy - Caddy/Caddyfile:/etc/caddy/Caddyfile:ro"
       - fqdn-proxy-data:/data
@@ -104,7 +104,7 @@ services:
     networks:
       - secnet
     ports:
-      - "${STACK_BIND_IP:-0.0.0.0}:${OLLAMA_PORT:-11434}:11434"
+      - "${STACK_BIND_IP:-127.0.0.1}:${OLLAMA_PORT:-11434}:11434"
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "ollama list >/dev/null 2>&1 || exit 1"]
@@ -146,7 +146,7 @@ services:
     networks:
       - secnet
     ports:
-      - "${STACK_BIND_IP:-0.0.0.0}:${UPTIME_KUMA_PORT:-3002}:3001"
+      - "${STACK_BIND_IP:-127.0.0.1}:${UPTIME_KUMA_PORT:-3002}:3001"
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "node extra/healthcheck.js"]
@@ -211,8 +211,8 @@ services:
     networks:
       - secnet
     ports:
-      - "${STACK_BIND_IP:-0.0.0.0}:${PORTAINER_HTTP_PORT:-9000}:9000"
-      - "${STACK_BIND_IP:-0.0.0.0}:${PORTAINER_HTTPS_PORT:-9443}:9443"
+      - "${STACK_BIND_IP:-127.0.0.1}:${PORTAINER_HTTP_PORT:-9000}:9000"
+      - "${STACK_BIND_IP:-127.0.0.1}:${PORTAINER_HTTPS_PORT:-9443}:9443"
     logging: *graylog-logging
 
   log-forwarder:
@@ -305,7 +305,7 @@ services:
       VAULT_ADDR: "http://0.0.0.0:8200"
     command: ["server", "-config=/vault/config/vault.hcl"]
     ports:
-      - "${STACK_BIND_IP:-0.0.0.0}:${VAULT_HTTP_PORT:-8200}:8200"
+      - "${STACK_BIND_IP:-127.0.0.1}:${VAULT_HTTP_PORT:-8200}:8200"
     volumes:
       - "./The Shield/vault/config:/vault/config:ro"
       - "./The Shield/vault/policies:/vault/policies:ro"
@@ -436,7 +436,7 @@ services:
         soft: -1
         hard: -1
     ports:
-      - "${STACK_BIND_IP:-0.0.0.0}:${WAZUH_INDEXER_PORT:-9200}:9200"
+      - "${STACK_BIND_IP:-127.0.0.1}:${WAZUH_INDEXER_PORT:-9200}:9200"
     volumes:
       - wazuh-indexer-data:/var/lib/wazuh-indexer
     networks:
@@ -458,10 +458,10 @@ services:
       INDEXER_URL: "https://wazuh-indexer:9200"
       FILEBEAT_SSL_VERIFICATION_MODE: "${WAZUH_FILEBEAT_SSL_VERIFICATION_MODE:-none}"
     ports:
-      - "${STACK_BIND_IP:-0.0.0.0}:${WAZUH_EVENTS_PORT:-1514}:1514/udp"
-      - "${STACK_BIND_IP:-0.0.0.0}:${WAZUH_FALLBACK_SYSLOG_PORT:-1516}:1516/udp"
-      - "${STACK_BIND_IP:-0.0.0.0}:${WAZUH_ENROLLMENT_PORT:-1515}:1515"
-      - "${STACK_BIND_IP:-0.0.0.0}:${WAZUH_API_PORT:-55000}:55000"
+      - "${STACK_BIND_IP:-127.0.0.1}:${WAZUH_EVENTS_PORT:-1514}:1514/udp"
+      - "${STACK_BIND_IP:-127.0.0.1}:${WAZUH_FALLBACK_SYSLOG_PORT:-1516}:1516/udp"
+      - "${STACK_BIND_IP:-127.0.0.1}:${WAZUH_ENROLLMENT_PORT:-1515}:1515"
+      - "${STACK_BIND_IP:-127.0.0.1}:${WAZUH_API_PORT:-55000}:55000"
     volumes:
       - wazuh-manager-data:/var/ossec/data
       - wazuh-manager-logs:/var/ossec/logs
@@ -491,7 +491,7 @@ services:
       DASHBOARD_USERNAME: "${WAZUH_DASHBOARD_USERNAME:-admin}"
       DASHBOARD_PASSWORD: "${WAZUH_DASHBOARD_PASSWORD:-SecretPassword}"
     ports:
-      - "${STACK_BIND_IP:-0.0.0.0}:${WAZUH_DASHBOARD_PORT:-5601}:5601"
+      - "${STACK_BIND_IP:-127.0.0.1}:${WAZUH_DASHBOARD_PORT:-5601}:5601"
     networks:
       - secnet
     depends_on:
@@ -575,12 +575,12 @@ services:
       graylog-datanode:
         condition: service_healthy
     ports:
-      - "${STACK_BIND_IP:-0.0.0.0}:${GRAYLOG_HTTP_PORT:-9000}:9000"
-      - "${STACK_BIND_IP:-0.0.0.0}:${GRAYLOG_GELF_UDP_PORT:-12201}:12201/udp"
-      - "${STACK_BIND_IP:-0.0.0.0}:12202:12202/udp"
-      - "${STACK_BIND_IP:-0.0.0.0}:12203:12203/udp"
-      - "${STACK_BIND_IP:-0.0.0.0}:${GRAYLOG_SYSLOG_TCP_PORT:-5514}:1514/tcp"
-      - "${STACK_BIND_IP:-0.0.0.0}:${GRAYLOG_SYSLOG_UDP_PORT:-5514}:1514/udp"
+      - "${STACK_BIND_IP:-127.0.0.1}:${GRAYLOG_HTTP_PORT:-9000}:9000"
+      - "${STACK_BIND_IP:-127.0.0.1}:${GRAYLOG_GELF_UDP_PORT:-12201}:12201/udp"
+      - "${STACK_BIND_IP:-127.0.0.1}:12202:12202/udp"
+      - "${STACK_BIND_IP:-127.0.0.1}:12203:12203/udp"
+      - "${STACK_BIND_IP:-127.0.0.1}:${GRAYLOG_SYSLOG_TCP_PORT:-5514}:1514/tcp"
+      - "${STACK_BIND_IP:-127.0.0.1}:${GRAYLOG_SYSLOG_UDP_PORT:-5514}:1514/udp"
     volumes:
       - graylog-data:/usr/share/graylog/data
     networks:
@@ -668,7 +668,7 @@ services:
       JVM_OPTS: "${THEHIVE_JVM_OPTS:--Xms512m -Xmx1g}"
       THEHIVE_PLAY_SECRET: "${THEHIVE_PLAY_SECRET:-CHANGE_ME_THEHIVE_LAB_SECRET_KEY_CHANGE_ME}"
     ports:
-      - "${STACK_BIND_IP:-0.0.0.0}:${THEHIVE_HTTP_PORT:-9001}:9000"
+      - "${STACK_BIND_IP:-127.0.0.1}:${THEHIVE_HTTP_PORT:-9001}:9000"
     volumes:
       - thehive-data:/opt/thp/thehive/data
       - "./The Eyes/thehive/application.conf:/etc/thehive/application.conf:ro"
@@ -694,8 +694,8 @@ services:
       BASE_URL: "${SHUFFLE_BASE_URL:-http://localhost:3001}"
       SHUFFLE_APP_SECRET: "${SHUFFLE_APP_SECRET:-CHANGE_ME_SHUFFLE_LAB_SECRET}"
     ports:
-      - "${STACK_BIND_IP:-0.0.0.0}:${SHUFFLE_FRONTEND_PORT:-3001}:3001"
-      - "${STACK_BIND_IP:-0.0.0.0}:${SHUFFLE_BACKEND_PORT:-5001}:5001"
+      - "${STACK_BIND_IP:-127.0.0.1}:${SHUFFLE_FRONTEND_PORT:-3001}:3001"
+      - "${STACK_BIND_IP:-127.0.0.1}:${SHUFFLE_BACKEND_PORT:-5001}:5001"
     volumes:
       - shuffle-data:/shuffle
       - /var/run/docker.sock:/var/run/docker.sock
@@ -717,8 +717,8 @@ services:
     environment:
       VELOCIRAPTOR_ADMIN_PASSWORD: "${VELOCIRAPTOR_ADMIN_PASSWORD:-admin}"
     ports:
-      - "${STACK_BIND_IP:-0.0.0.0}:${VELOCIRAPTOR_GUI_PORT:-8889}:8889"
-      - "${STACK_BIND_IP:-0.0.0.0}:${VELOCIRAPTOR_FRONTEND_PORT:-8000}:8000"
+      - "${STACK_BIND_IP:-127.0.0.1}:${VELOCIRAPTOR_GUI_PORT:-8889}:8889"
+      - "${STACK_BIND_IP:-127.0.0.1}:${VELOCIRAPTOR_FRONTEND_PORT:-8000}:8000"
     volumes:
       - velociraptor-data:/velociraptor
       - "./The Shield/velociraptor:/hq-sec-velociraptor:ro"
@@ -741,7 +741,7 @@ services:
       COLLECTIONS: "crowdsecurity/linux crowdsecurity/windows crowdsecurity/suricata crowdsecurity/caddy"
       BOUNCER_KEY_caddy: "${CADDY_CROWDSEC_API_KEY}"
     ports:
-      - "${STACK_BIND_IP:-0.0.0.0}:${CROWDSEC_LAPI_PORT:-8080}:8080"
+      - "${STACK_BIND_IP:-127.0.0.1}:${CROWDSEC_LAPI_PORT:-8080}:8080"
     volumes:
       - crowdsec-data:/var/lib/crowdsec/data
       - crowdsec-config:/etc/crowdsec
@@ -1019,8 +1019,8 @@ services:
     profiles: ["vuln", "all"]
     restart: unless-stopped
     ports:
-      - "${STACK_BIND_IP:-0.0.0.0}:${GREENBONE_HTTPS_PORT:-9443}:443"
-      - "${STACK_BIND_IP:-0.0.0.0}:${GREENBONE_GSA_PORT:-9392}:9392"
+      - "${STACK_BIND_IP:-127.0.0.1}:${GREENBONE_HTTPS_PORT:-9443}:443"
+      - "${STACK_BIND_IP:-127.0.0.1}:${GREENBONE_GSA_PORT:-9392}:9392"
     volumes:
       - greenbone-nginx-config:/etc/nginx/conf.d:ro
       - greenbone-nginx-certificates:/etc/nginx/certs:ro

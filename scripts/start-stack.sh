@@ -123,11 +123,11 @@ main() {
 
   if [ "${PULL_IMAGES}" = "true" ]; then
     log "pulling images"
-    compose $(profile_args) pull
+    compose $(profile_args) pull --ignore-buildable
   fi
 
   log "starting services"
-  compose $(profile_args) up -d --remove-orphans
+  compose $(profile_args) up -d --build --remove-orphans
   compose $(profile_args) ps
   wait_for_health
   log "startup complete"

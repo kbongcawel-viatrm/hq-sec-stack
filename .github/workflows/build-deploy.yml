@@ -34,7 +34,7 @@ jobs:
           bash -n "The Shield/vault/scripts/monthly-rotate.sh"
 
       - name: Pull critical profile images
-        run: docker compose -f security-stack.compose.yml --profile dns --profile secrets --profile brain pull
+        run: docker compose -f security-stack.compose.yml --profile dns --profile secrets --profile brain pull --ignore-buildable
 
   deploy:
     name: Deploy to Docker Host
