@@ -1,0 +1,990 @@
+# security-stack.compose.yml
+#
+# Linux-focused security monitoring and incident-response lab stack.
+#
+# Usage:
+#   cp .env.example .env
+#   docker compose -f security-stack.compose.yml --profile brain config
+#   docker compose -f security-stack.compose.yml --profile brain up -d
+#   docker compose -f security-stack.compose.yml --profile network up -d
+#   docker compose -f security-stack.compose.yml --profile ir up -d
+#   docker compose -f security-stack.compose.yml --profile vuln up -d
+#   docker compose -f security-stack.compose.yml --profile all up -d
+#
+# Linux host requirements:
+#   sudo sysctl -w vm.max_map_count=262144
+#
+# This is a lab stack. Production Wazuh, Graylog, TheHive, Shuffle, and
+# Greenbone deployments should use each vendor's full hardening guidance,
+# certificate workflow, secret management, and backup design.
+
+x-graylog-logging: &graylog-logging
+  driver: gelf
+  options:
+    gelf-address: "udp://${GRAYLOG_GELF_ADDRESS:-127.0.0.1}:${GRAYLOG_GELF_UDP_PORT:-12201}"
+    tag: "{{.Name}}"
+
+services:
+  ############################################################
+  # Local DNS & FQDN routing
+  ############################################################
+
+  secdns:
+    image: coredns/coredns:${COREDNS_VERSION:-1.11.3}
+    container_name: secdns
+    profiles: ["dns", "all"]
+    command: ["-conf", "/etc/coredns/Corefile"]
+    ports:
+      - "${SECDNS_HOST_IP:-127.0.0.1}:${SECDNS_PORT:-1053}:53/udp"
+      - "${SECDNS_HOST_IP:-127.0.0.1}:${SECDNS_PORT:-1053}:53/tcp"
+    volumes:
+      - ./dns/Corefile:/etc/coredns/Corefile:ro
+      - ./dns/hosts.hq-sec:/etc/coredns/hosts.hq-sec:ro
+    networks:
+      secnet:
+        ipv4_address: "${SECDNS_IPV4:-10.77.0.53}"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "/coredns", "-version"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    logging: *graylog-logging
+
+  fqdn-proxy:
+    image: caddy:${CADDY_VERSION:-2.8.4-alpine}
+    container_name: fqdn-proxy
+    profiles: ["dns", "all"]
+    ports:
+      - "${FQDN_HTTP_HOST_IP:-0.0.0.0}:${FQDN_HTTP_PORT:-80}:80"
+    volumes:
+      - ./proxy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - fqdn-proxy-data:/data
+      - fqdn-proxy-config:/config
+    networks:
+      secnet:
+        ipv4_address: "${FQDN_PROXY_IPV4:-10.77.0.80}"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:80/healthz >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    logging: *graylog-logging
+
+  report-dashboard:
+    image: caddy:${CADDY_VERSION:-2.8.4-alpine}
+    container_name: report-dashboard
+    profiles: ["ops", "dashboard", "all"]
+    volumes:
+      - ./dashboard:/usr/share/caddy:ro
+      - ./reports:/usr/share/caddy/reports:ro
+    networks:
+      - secnet
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:80 >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    logging: *graylog-logging
+
+  log-forwarder:
+    image: fluent/fluent-bit:${FLUENT_BIT_VERSION:-3.2.10}
+    container_name: log-forwarder
+    profiles: ["ops", "logs", "all"]
+    volumes:
+      - ./fluent-bit/fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf:ro
+      - ./fluent-bit/parsers.conf:/fluent-bit/etc/parsers.conf:ro
+      - fluent-bit-state:/fluent-bit/state
+      - suricata-logs:/logs/suricata:ro
+      - zeek-logs:/logs/zeek:ro
+      - wazuh-manager-logs:/logs/wazuh-manager:ro
+      - vault-logs:/logs/vault:ro
+      - greenbone-openvas-log-data:/logs/openvas:ro
+    networks:
+      - secnet
+    restart: unless-stopped
+    depends_on:
+      graylog:
+        condition: service_healthy
+    logging: *graylog-logging
+
+  graylog-bootstrap:
+    image: curlimages/curl:${CURL_VERSION:-8.10.1}
+    container_name: graylog-bootstrap
+    profiles: ["ops", "logs", "all"]
+    environment:
+      GRAYLOG_API_URL: "${GRAYLOG_API_URL:-http://graylog:9000/api}"
+      GRAYLOG_ROOT_USERNAME: "${GRAYLOG_ROOT_USERNAME:-admin}"
+      GRAYLOG_ROOT_PASSWORD: "${GRAYLOG_ROOT_PASSWORD:-admin}"
+      GRAYLOG_GELF_UDP_PORT: "${GRAYLOG_GELF_UDP_PORT:-12201}"
+      GRAYLOG_SYSLOG_INPUT_PORT: "1514"
+    volumes:
+      - ./graylog/scripts:/graylog/scripts:ro
+    entrypoint: ["/bin/sh", "/graylog/scripts/bootstrap-inputs.sh"]
+    networks:
+      - secnet
+    restart: "no"
+    depends_on:
+      graylog:
+        condition: service_healthy
+    logging: *graylog-logging
+
+  log-assessor:
+    image: python:${PYTHON_ALPINE_VERSION:-3.12-alpine}
+    container_name: log-assessor
+    profiles: ["ops", "dashboard", "all"]
+    environment:
+      LOG_ASSESSMENT_INTERVAL_SECONDS: "${LOG_ASSESSMENT_INTERVAL_SECONDS:-3600}"
+      LOG_ASSESSMENT_RUN_ON_STARTUP: "${LOG_ASSESSMENT_RUN_ON_STARTUP:-true}"
+    volumes:
+      - ./assessment/scripts:/assessment/scripts:ro
+      - ./reports:/reports
+      - suricata-logs:/logs/suricata:ro
+      - zeek-logs:/logs/zeek:ro
+      - wazuh-manager-logs:/logs/wazuh-manager:ro
+      - vault-logs:/logs/vault:ro
+      - greenbone-openvas-log-data:/logs/openvas:ro
+    entrypoint: ["python", "/assessment/scripts/assess_today.py"]
+    networks:
+      - secnet
+    restart: unless-stopped
+    logging: *graylog-logging
+
+  ############################################################
+  # Secrets Management
+  ############################################################
+
+  vault:
+    image: hashicorp/vault:${VAULT_VERSION:-1.18}
+    container_name: vault
+    profiles: ["secrets", "all"]
+    cap_add:
+      - IPC_LOCK
+    environment:
+      VAULT_ADDR: "http://0.0.0.0:8200"
+    command: ["server", "-config=/vault/config/vault.hcl"]
+    ports:
+      - "${VAULT_HTTP_PORT:-8200}:8200"
+    volumes:
+      - ./vault/config:/vault/config:ro
+      - ./vault/policies:/vault/policies:ro
+      - vault-data:/vault/file
+      - vault-logs:/vault/logs
+    networks:
+      - secnet
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "vault status -address=http://127.0.0.1:8200 >/dev/null 2>&1; code=$$?; [ $$code -eq 0 ] || [ $$code -eq 2 ]"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    logging: *graylog-logging
+
+  vault-rotator:
+    image: hashicorp/vault:${VAULT_VERSION:-1.18}
+    container_name: vault-rotator
+    profiles: ["secrets", "all"]
+    environment:
+      VAULT_ADDR: "${VAULT_ADDR:-http://vault:8200}"
+      VAULT_TOKEN: "${VAULT_ROTATOR_TOKEN:-}"
+      VAULT_ROTATION_DAY: "${VAULT_ROTATION_DAY:-1}"
+      VAULT_ROTATION_CHECK_SECONDS: "${VAULT_ROTATION_CHECK_SECONDS:-21600}"
+      VAULT_ROTATION_RUN_ON_STARTUP: "${VAULT_ROTATION_RUN_ON_STARTUP:-false}"
+      VAULT_KV_MOUNT: "${VAULT_KV_MOUNT:-secret}"
+    volumes:
+      - ./vault/scripts:/vault/scripts:ro
+      - vault-rotator-state:/vault/state
+    entrypoint: ["/bin/sh", "/vault/scripts/monthly-rotate.sh"]
+    networks:
+      - secnet
+    restart: unless-stopped
+    depends_on:
+      - vault
+    logging: *graylog-logging
+
+  ############################################################
+  # Backup & Vulnerability Observation
+  ############################################################
+
+  volume-backup:
+    image: alpine:${BACKUP_ALPINE_VERSION:-3.20}
+    container_name: volume-backup
+    profiles: ["ops", "backup", "all"]
+    environment:
+      BACKUP_INTERVAL_SECONDS: "${BACKUP_INTERVAL_SECONDS:-86400}"
+      BACKUP_RETENTION_DAYS: "${BACKUP_RETENTION_DAYS:-30}"
+      BACKUP_RUN_ON_STARTUP: "${BACKUP_RUN_ON_STARTUP:-true}"
+    volumes:
+      - ./backup/scripts:/backup/scripts:ro
+      - ./backups:/backups
+      - fqdn-proxy-data:/sources/fqdn-proxy-data:ro
+      - fqdn-proxy-config:/sources/fqdn-proxy-config:ro
+      - vault-data:/sources/vault-data:ro
+      - vault-logs:/sources/vault-logs:ro
+      - vault-rotator-state:/sources/vault-rotator-state:ro
+      - wazuh-indexer-data:/sources/wazuh-indexer-data:ro
+      - wazuh-manager-data:/sources/wazuh-manager-data:ro
+      - wazuh-manager-logs:/sources/wazuh-manager-logs:ro
+      - wazuh-manager-queue:/sources/wazuh-manager-queue:ro
+      - graylog-mongo-data:/sources/graylog-mongo-data:ro
+      - graylog-datanode-data:/sources/graylog-datanode-data:ro
+      - graylog-data:/sources/graylog-data:ro
+      - suricata-logs:/sources/suricata-logs:ro
+      - zeek-logs:/sources/zeek-logs:ro
+      - thehive-data:/sources/thehive-data:ro
+      - shuffle-data:/sources/shuffle-data:ro
+      - velociraptor-data:/sources/velociraptor-data:ro
+      - greenbone-gpg-data:/sources/greenbone-gpg-data:ro
+      - greenbone-scap-data:/sources/greenbone-scap-data:ro
+      - greenbone-cert-data:/sources/greenbone-cert-data:ro
+      - greenbone-data-objects:/sources/greenbone-data-objects:ro
+      - greenbone-gvmd-data:/sources/greenbone-gvmd-data:ro
+      - greenbone-psql-data:/sources/greenbone-psql-data:ro
+      - greenbone-vt-data:/sources/greenbone-vt-data:ro
+      - greenbone-notus-data:/sources/greenbone-notus-data:ro
+      - greenbone-openvas-data:/sources/greenbone-openvas-data:ro
+      - greenbone-openvas-log-data:/sources/greenbone-openvas-log-data:ro
+      - greenbone-gsa-data:/sources/greenbone-gsa-data:ro
+      - greenbone-nginx-config:/sources/greenbone-nginx-config:ro
+      - greenbone-nginx-certificates:/sources/greenbone-nginx-certificates:ro
+    entrypoint: ["/bin/sh", "/backup/scripts/backup-volumes.sh"]
+    restart: unless-stopped
+    logging: *graylog-logging
+
+  container-vuln-scanner:
+    image: aquasec/trivy:${TRIVY_VERSION:-0.70.0}
+    container_name: container-vuln-scanner
+    profiles: ["ops", "scanner", "all"]
+    environment:
+      TRIVY_SCAN_INTERVAL_SECONDS: "${TRIVY_SCAN_INTERVAL_SECONDS:-86400}"
+      TRIVY_SEVERITY: "${TRIVY_SEVERITY:-HIGH,CRITICAL}"
+      TRIVY_EXIT_CODE: "${TRIVY_EXIT_CODE:-0}"
+      TRIVY_RUN_ON_STARTUP: "${TRIVY_RUN_ON_STARTUP:-true}"
+    volumes:
+      - ./scanner/scripts:/scanner/scripts:ro
+      - ./scanner/targets.txt:/scanner/targets.txt:ro
+      - ./reports/container-vulnerabilities:/reports
+      - trivy-cache:/root/.cache/trivy
+    entrypoint: ["/bin/sh", "/scanner/scripts/scan-containers.sh"]
+    restart: unless-stopped
+    logging: *graylog-logging
+
+  ############################################################
+  # Visualization & SIEM - "Brain"
+  ############################################################
+
+  wazuh-indexer:
+    image: wazuh/wazuh-indexer:${WAZUH_VERSION:-4.14.5}
+    container_name: wazuh-indexer
+    profiles: ["brain", "all"]
+    environment:
+      OPENSEARCH_JAVA_OPTS: "${WAZUH_INDEXER_JAVA_OPTS:--Xms1g -Xmx1g}"
+      bootstrap.memory_lock: "true"
+      discovery.type: "single-node"
+      network.host: "0.0.0.0"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    ports:
+      - "${WAZUH_INDEXER_PORT:-9200}:9200"
+    volumes:
+      - wazuh-indexer-data:/var/lib/wazuh-indexer
+    networks:
+      - secnet
+    healthcheck:
+      test: ["CMD-SHELL", "curl -kfsS https://localhost:9200 >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 20
+      start_period: 90s
+    logging: *graylog-logging
+
+  wazuh-manager:
+    image: wazuh/wazuh-manager:${WAZUH_VERSION:-4.14.5}
+    container_name: wazuh-manager
+    hostname: wazuh-manager
+    profiles: ["brain", "all"]
+    environment:
+      INDEXER_URL: "https://wazuh-indexer:9200"
+      FILEBEAT_SSL_VERIFICATION_MODE: "${WAZUH_FILEBEAT_SSL_VERIFICATION_MODE:-none}"
+    ports:
+      - "${WAZUH_EVENTS_PORT:-1514}:1514/udp"
+      - "${WAZUH_ENROLLMENT_PORT:-1515}:1515"
+      - "${WAZUH_API_PORT:-55000}:55000"
+    volumes:
+      - wazuh-manager-data:/var/ossec/data
+      - wazuh-manager-logs:/var/ossec/logs
+      - wazuh-manager-queue:/var/ossec/queue
+    networks:
+      - secnet
+    depends_on:
+      wazuh-indexer:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -kfsS https://localhost:55000 >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 20
+      start_period: 90s
+    logging: *graylog-logging
+
+  wazuh-dashboard:
+    image: wazuh/wazuh-dashboard:${WAZUH_VERSION:-4.14.5}
+    container_name: wazuh-dashboard
+    profiles: ["brain", "all"]
+    environment:
+      INDEXER_URL: "https://wazuh-indexer:9200"
+      WAZUH_API_URL: "https://wazuh-manager"
+      DASHBOARD_USERNAME: "${WAZUH_DASHBOARD_USERNAME:-admin}"
+      DASHBOARD_PASSWORD: "${WAZUH_DASHBOARD_PASSWORD:-SecretPassword}"
+    ports:
+      - "${WAZUH_DASHBOARD_PORT:-5601}:5601"
+    networks:
+      - secnet
+    depends_on:
+      wazuh-indexer:
+        condition: service_healthy
+      wazuh-manager:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -kfsS https://localhost:5601/status >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 20
+      start_period: 90s
+    logging: *graylog-logging
+
+  graylog-mongo:
+    image: mongo:${MONGO_VERSION:-7.0}
+    container_name: graylog-mongo
+    profiles: ["brain", "all"]
+    volumes:
+      - graylog-mongo-data:/data/db
+    networks:
+      - secnet
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --eval 'db.adminCommand({ ping: 1 }).ok' localhost:27017/test | grep 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    logging: *graylog-logging
+
+  graylog-datanode:
+    image: graylog/graylog-datanode:${GRAYLOG_VERSION:-7.0.6}
+    container_name: graylog-datanode
+    profiles: ["brain", "all"]
+    hostname: graylog-datanode
+    environment:
+      GRAYLOG_DATANODE_NODE_ID_FILE: /var/lib/graylog-datanode/node-id
+      GRAYLOG_DATANODE_PASSWORD_SECRET: "${GRAYLOG_PASSWORD_SECRET:-CHANGE_ME_CHANGE_ME_CHANGE_ME_CHANGE_ME_CHANGE_ME_CHANGE_ME}"
+      GRAYLOG_DATANODE_ROOT_PASSWORD_SHA2: "${GRAYLOG_ROOT_PASSWORD_SHA2:-8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918}"
+      GRAYLOG_DATANODE_MONGODB_URI: "mongodb://graylog-mongo:27017/graylog"
+      GRAYLOG_DATANODE_OPENSEARCH_HTTP_PORT: "9200"
+      GRAYLOG_DATANODE_OPENSEARCH_TRANSPORT_PORT: "9300"
+      OPENSEARCH_JAVA_OPTS: "${GRAYLOG_DATANODE_JAVA_OPTS:--Xms1g -Xmx1g}"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - graylog-datanode-data:/var/lib/graylog-datanode
+    networks:
+      - secnet
+    depends_on:
+      graylog-mongo:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9200 >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 20
+      start_period: 90s
+    logging: *graylog-logging
+
+  graylog:
+    image: graylog/graylog:${GRAYLOG_VERSION:-7.0.6}
+    container_name: graylog
+    profiles: ["brain", "all"]
+    hostname: graylog
+    environment:
+      GRAYLOG_NODE_ID_FILE: /usr/share/graylog/data/config/node-id
+      GRAYLOG_PASSWORD_SECRET: "${GRAYLOG_PASSWORD_SECRET:-CHANGE_ME_CHANGE_ME_CHANGE_ME_CHANGE_ME_CHANGE_ME_CHANGE_ME}"
+      GRAYLOG_ROOT_PASSWORD_SHA2: "${GRAYLOG_ROOT_PASSWORD_SHA2:-8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918}"
+      GRAYLOG_HTTP_BIND_ADDRESS: "0.0.0.0:9000"
+      GRAYLOG_HTTP_EXTERNAL_URI: "${GRAYLOG_HTTP_EXTERNAL_URI:-http://localhost:9000/}"
+      GRAYLOG_MONGODB_URI: "mongodb://graylog-mongo:27017/graylog"
+      GRAYLOG_ELASTICSEARCH_HOSTS: "http://graylog-datanode:9200"
+    entrypoint: ["/usr/bin/tini", "--", "/docker-entrypoint.sh"]
+    depends_on:
+      graylog-mongo:
+        condition: service_healthy
+      graylog-datanode:
+        condition: service_healthy
+    ports:
+      - "${GRAYLOG_HTTP_PORT:-9000}:9000"
+      - "${GRAYLOG_GELF_UDP_PORT:-12201}:12201/udp"
+      - "${GRAYLOG_SYSLOG_TCP_PORT:-5514}:1514/tcp"
+      - "${GRAYLOG_SYSLOG_UDP_PORT:-5514}:1514/udp"
+    volumes:
+      - graylog-data:/usr/share/graylog/data
+    networks:
+      - secnet
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9000/api/system/lbstatus >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 20
+      start_period: 120s
+    logging: *graylog-logging
+
+  ############################################################
+  # Network Monitoring - "Eyes"
+  ############################################################
+
+  suricata:
+    image: jasonish/suricata:${SURICATA_VERSION:-7.0}
+    container_name: suricata
+    profiles: ["network", "all"]
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+      - SYS_NICE
+    command:
+      - "-i"
+      - "${SENSOR_INTERFACE:-eth0}"
+      - "--set"
+      - "outputs.eve-log.enabled=yes"
+      - "--user"
+      - "${SURICATA_RUN_USER:-suricata}"
+      - "--group"
+      - "${SURICATA_RUN_GROUP:-suricata}"
+    volumes:
+      - suricata-logs:/var/log/suricata
+      - ./suricata/rules:/var/lib/suricata/rules:ro
+    restart: unless-stopped
+    logging: *graylog-logging
+
+  zeek:
+    image: zeek/zeek:${ZEEK_VERSION:-lts}
+    container_name: zeek
+    profiles: ["network", "all"]
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    command: ["zeek", "-i", "${SENSOR_INTERFACE:-eth0}"]
+    volumes:
+      - zeek-logs:/usr/local/zeek/logs
+    restart: unless-stopped
+    logging: *graylog-logging
+
+  ############################################################
+  # Incident Response & Automation - "Shield"
+  ############################################################
+
+  thehive:
+    image: strangebee/thehive:${THEHIVE_VERSION:-5}
+    container_name: thehive
+    profiles: ["ir", "all"]
+    environment:
+      JVM_OPTS: "${THEHIVE_JVM_OPTS:--Xms512m -Xmx1g}"
+    ports:
+      - "${THEHIVE_HTTP_PORT:-9001}:9000"
+    volumes:
+      - thehive-data:/opt/thp/thehive/data
+      - ./thehive/application.conf:/etc/thehive/application.conf:ro
+    networks:
+      - secnet
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9000/api/status >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 20
+      start_period: 90s
+    logging: *graylog-logging
+
+  shuffle:
+    image: ghcr.io/frikky/shuffle:${SHUFFLE_VERSION:-1.4.0}
+    container_name: shuffle
+    profiles: ["ir", "all"]
+    environment:
+      SHUFFLE_APP_HOTLOAD_FOLDER: /shuffle/apps
+      SHUFFLE_FILE_LOCATION: /shuffle/files
+      SHUFFLE_OPENSEARCH_URL: "http://graylog-datanode:9200"
+      BASE_URL: "${SHUFFLE_BASE_URL:-http://localhost:3001}"
+    ports:
+      - "${SHUFFLE_FRONTEND_PORT:-3001}:3001"
+      - "${SHUFFLE_BACKEND_PORT:-5001}:5001"
+    volumes:
+      - shuffle-data:/shuffle
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - secnet
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3001 >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 20
+      start_period: 120s
+    logging: *graylog-logging
+
+  velociraptor:
+    image: xboarder56/velociraptor:${VELOCIRAPTOR_VERSION:-0.74.2}
+    container_name: velociraptor
+    profiles: ["ir", "all"]
+    ports:
+      - "${VELOCIRAPTOR_GUI_PORT:-8889}:8889"
+      - "${VELOCIRAPTOR_FRONTEND_PORT:-8000}:8000"
+    volumes:
+      - velociraptor-data:/velociraptor
+    networks:
+      - secnet
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8889 >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 20
+      start_period: 90s
+    logging: *graylog-logging
+
+  ansible-ir:
+    image: cytopia/ansible:${ANSIBLE_VERSION:-2.16-tools}
+    container_name: ansible-ir
+    profiles: ["ir", "all"]
+    user: "${SECSTACK_UID:-1000}:${SECSTACK_GID:-1000}"
+    working_dir: /ansible
+    environment:
+      ANSIBLE_CONFIG: /ansible/ansible.cfg
+      HOME: /ansible
+    volumes:
+      - ./ansible:/ansible
+      - ./ansible/.ssh:/ansible/.ssh:ro
+    entrypoint: ["sleep", "infinity"]
+    networks:
+      - secnet
+    logging: *graylog-logging
+
+  ############################################################
+  # Vulnerability & Hardening
+  ############################################################
+
+  osquery:
+    image: osquery/osquery:${OSQUERY_VERSION:-5.15.0}
+    container_name: osquery
+    profiles: ["vuln", "all"]
+    user: "${SECSTACK_UID:-1000}:${SECSTACK_GID:-1000}"
+    command: ["osqueryi"]
+    stdin_open: true
+    tty: true
+    volumes:
+      - /:/host:ro
+    networks:
+      - secnet
+    logging: *graylog-logging
+
+  vulnerability-tests:
+    image: registry.community.greenbone.net/community/vulnerability-tests:${GREENBONE_DATA_TAG:-latest}
+    profiles: ["vuln", "all"]
+    environment:
+      FEED_RELEASE: "${GREENBONE_FEED_RELEASE:-24.10}"
+      KEEP_ALIVE: "1"
+    volumes:
+      - greenbone-vt-data:/mnt
+    networks:
+      - secnet
+    logging: *graylog-logging
+
+  notus-data:
+    image: registry.community.greenbone.net/community/notus-data:${GREENBONE_DATA_TAG:-latest}
+    profiles: ["vuln", "all"]
+    environment:
+      KEEP_ALIVE: "1"
+    volumes:
+      - greenbone-notus-data:/mnt
+    networks:
+      - secnet
+    logging: *graylog-logging
+
+  scap-data:
+    image: registry.community.greenbone.net/community/scap-data:${GREENBONE_DATA_TAG:-latest}
+    profiles: ["vuln", "all"]
+    environment:
+      KEEP_ALIVE: "1"
+    volumes:
+      - greenbone-scap-data:/mnt
+    networks:
+      - secnet
+    logging: *graylog-logging
+
+  cert-bund-data:
+    image: registry.community.greenbone.net/community/cert-bund-data:${GREENBONE_DATA_TAG:-latest}
+    profiles: ["vuln", "all"]
+    environment:
+      KEEP_ALIVE: "1"
+    volumes:
+      - greenbone-cert-data:/mnt
+    networks:
+      - secnet
+    logging: *graylog-logging
+
+  dfn-cert-data:
+    image: registry.community.greenbone.net/community/dfn-cert-data:${GREENBONE_DATA_TAG:-latest}
+    profiles: ["vuln", "all"]
+    environment:
+      KEEP_ALIVE: "1"
+    volumes:
+      - greenbone-cert-data:/mnt
+    networks:
+      - secnet
+    depends_on:
+      cert-bund-data:
+        condition: service_healthy
+    logging: *graylog-logging
+
+  data-objects:
+    image: registry.community.greenbone.net/community/data-objects:${GREENBONE_DATA_TAG:-latest}
+    profiles: ["vuln", "all"]
+    environment:
+      FEED_RELEASE: "${GREENBONE_FEED_RELEASE:-24.10}"
+      KEEP_ALIVE: "1"
+    volumes:
+      - greenbone-data-objects:/mnt
+    networks:
+      - secnet
+    logging: *graylog-logging
+
+  report-formats:
+    image: registry.community.greenbone.net/community/report-formats:${GREENBONE_DATA_TAG:-latest}
+    profiles: ["vuln", "all"]
+    environment:
+      FEED_RELEASE: "${GREENBONE_FEED_RELEASE:-24.10}"
+      KEEP_ALIVE: "1"
+    volumes:
+      - greenbone-data-objects:/mnt
+    networks:
+      - secnet
+    depends_on:
+      data-objects:
+        condition: service_healthy
+    logging: *graylog-logging
+
+  gpg-data:
+    image: registry.community.greenbone.net/community/gpg-data:${GREENBONE_DATA_TAG:-latest}
+    profiles: ["vuln", "all"]
+    volumes:
+      - greenbone-gpg-data:/mnt
+    networks:
+      - secnet
+    logging: *graylog-logging
+
+  redis-server:
+    image: registry.community.greenbone.net/community/redis-server:${GREENBONE_IMAGE_TAG:-latest}
+    profiles: ["vuln", "all"]
+    restart: unless-stopped
+    volumes:
+      - greenbone-redis-socket:/run/redis/
+    networks:
+      - secnet
+    logging: *graylog-logging
+
+  pg-gvm-migrator:
+    image: registry.community.greenbone.net/community/pg-gvm-migrator:${GREENBONE_IMAGE_TAG:-stable}
+    profiles: ["vuln", "all"]
+    volumes:
+      - greenbone-psql-data:/var/lib/postgresql
+      - greenbone-psql-socket:/var/run/postgresql
+    networks:
+      - secnet
+    logging: *graylog-logging
+
+  pg-gvm:
+    image: registry.community.greenbone.net/community/pg-gvm:${GREENBONE_IMAGE_TAG:-stable}
+    profiles: ["vuln", "all"]
+    restart: unless-stopped
+    volumes:
+      - greenbone-psql-data:/var/lib/postgresql
+      - greenbone-psql-socket:/var/run/postgresql
+    networks:
+      - secnet
+    depends_on:
+      pg-gvm-migrator:
+        condition: service_completed_successfully
+    logging: *graylog-logging
+
+  gvmd:
+    image: registry.community.greenbone.net/community/gvmd:${GREENBONE_IMAGE_TAG:-stable}
+    profiles: ["vuln", "all"]
+    restart: unless-stopped
+    volumes:
+      - greenbone-gvmd-data:/var/lib/gvm
+      - greenbone-scap-data:/var/lib/gvm/scap-data/
+      - greenbone-cert-data:/var/lib/gvm/cert-data
+      - greenbone-data-objects:/var/lib/gvm/data-objects/gvmd
+      - greenbone-vt-data:/var/lib/openvas/plugins
+      - greenbone-psql-data:/var/lib/postgresql
+      - greenbone-gvmd-socket:/run/gvmd
+      - greenbone-ospd-openvas-socket:/run/ospd
+      - greenbone-psql-socket:/var/run/postgresql
+    networks:
+      - secnet
+    depends_on:
+      pg-gvm:
+        condition: service_started
+      scap-data:
+        condition: service_healthy
+      cert-bund-data:
+        condition: service_healthy
+      dfn-cert-data:
+        condition: service_healthy
+      data-objects:
+        condition: service_healthy
+      report-formats:
+        condition: service_healthy
+    logging: *graylog-logging
+
+  gsa:
+    image: registry.community.greenbone.net/community/gsa:${GREENBONE_GSA_TAG:-stable-slim}
+    profiles: ["vuln", "all"]
+    environment:
+      MOUNT_PATH: /mnt/web
+      KEEP_ALIVE: "1"
+    volumes:
+      - greenbone-gsa-data:/mnt/web
+    networks:
+      - secnet
+    healthcheck:
+      test: ["CMD-SHELL", "test -e /run/gsa/copying.done"]
+      start_period: 5s
+    logging: *graylog-logging
+
+  gsad:
+    image: registry.community.greenbone.net/community/gsad:${GREENBONE_IMAGE_TAG:-stable}
+    profiles: ["vuln", "all"]
+    restart: unless-stopped
+    environment:
+      GSAD_HTTP_ONLY: "true"
+      GSAD_API_ONLY: "true"
+      GSAD_FOREGROUND: "true"
+    volumes:
+      - greenbone-gvmd-socket:/run/gvmd
+    networks:
+      - secnet
+    depends_on:
+      gvmd:
+        condition: service_started
+    logging: *graylog-logging
+
+  gvm-config:
+    image: registry.community.greenbone.net/community/gvm-config:${GREENBONE_CONFIG_TAG:-latest}
+    profiles: ["vuln", "all"]
+    environment:
+      ENABLE_NGINX_CONFIG: "true"
+      ENABLE_TLS_GENERATION: "true"
+    volumes:
+      - greenbone-nginx-config:/mnt/nginx/configs
+      - greenbone-nginx-certificates:/mnt/nginx/certs
+    networks:
+      - secnet
+    logging: *graylog-logging
+
+  greenbone-nginx:
+    image: registry.community.greenbone.net/community/nginx:${GREENBONE_CONFIG_TAG:-latest}
+    profiles: ["vuln", "all"]
+    restart: unless-stopped
+    ports:
+      - "${GREENBONE_HTTPS_PORT:-9443}:443"
+      - "${GREENBONE_GSA_PORT:-9392}:9392"
+    volumes:
+      - greenbone-nginx-config:/etc/nginx/conf.d:ro
+      - greenbone-nginx-certificates:/etc/nginx/certs:ro
+      - greenbone-gsa-data:/usr/share/nginx/html:ro
+    networks:
+      - secnet
+    depends_on:
+      gvm-config:
+        condition: service_completed_successfully
+      gsa:
+        condition: service_healthy
+      gsad:
+        condition: service_started
+    logging: *graylog-logging
+
+  configure-openvas:
+    image: registry.community.greenbone.net/community/openvas-scanner:${GREENBONE_IMAGE_TAG:-stable}
+    profiles: ["vuln", "all"]
+    volumes:
+      - greenbone-openvas-data:/mnt
+      - greenbone-openvas-log-data:/var/log/openvas
+    command:
+      - /bin/sh
+      - -c
+      - |
+        printf "table_driven_lsc = yes\nopenvasd_server = http://openvasd:80\n" > /mnt/openvas.conf
+        sed "s/127/128/" /etc/openvas/openvas_log.conf | sed 's/gvm/openvas/' > /mnt/openvas_log.conf
+        chmod 644 /mnt/openvas.conf
+        chmod 644 /mnt/openvas_log.conf
+        touch /var/log/openvas/openvas.log
+        chmod 666 /var/log/openvas/openvas.log
+    networks:
+      - secnet
+    logging: *graylog-logging
+
+  openvas:
+    image: registry.community.greenbone.net/community/openvas-scanner:${GREENBONE_IMAGE_TAG:-stable}
+    profiles: ["vuln", "all"]
+    volumes:
+      - greenbone-openvas-data:/etc/openvas
+      - greenbone-openvas-log-data:/var/log/openvas
+    command:
+      - /bin/sh
+      - -c
+      - |
+        cat /etc/openvas/openvas.conf
+        tail -f /var/log/openvas/openvas.log
+    networks:
+      - secnet
+    depends_on:
+      configure-openvas:
+        condition: service_completed_successfully
+    logging: *graylog-logging
+
+  openvasd:
+    image: registry.community.greenbone.net/community/openvas-scanner:${GREENBONE_IMAGE_TAG:-stable}
+    profiles: ["vuln", "all"]
+    restart: unless-stopped
+    environment:
+      OPENVASD_MODE: service_notus
+      GNUPGHOME: /etc/openvas/gnupg
+      LISTENING: 0.0.0.0:80
+    volumes:
+      - greenbone-openvas-data:/etc/openvas
+      - greenbone-openvas-log-data:/var/log/openvas
+      - greenbone-gpg-data:/etc/openvas/gnupg
+      - greenbone-notus-data:/var/lib/notus
+    networks:
+      secnet:
+        aliases:
+          - openvasd
+    depends_on:
+      vulnerability-tests:
+        condition: service_healthy
+      notus-data:
+        condition: service_healthy
+      configure-openvas:
+        condition: service_completed_successfully
+      gpg-data:
+        condition: service_completed_successfully
+    logging: *graylog-logging
+
+  ospd-openvas:
+    image: registry.community.greenbone.net/community/ospd-openvas:${GREENBONE_IMAGE_TAG:-stable}
+    profiles: ["vuln", "all"]
+    restart: unless-stopped
+    hostname: ospd-openvas.local
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    security_opt:
+      - seccomp=unconfined
+      - apparmor=unconfined
+    command:
+      [
+        "ospd-openvas",
+        "-f",
+        "--config",
+        "/etc/gvm/ospd-openvas.conf",
+        "--notus-feed-dir",
+        "/var/lib/notus/advisories",
+        "-m",
+        "666",
+      ]
+    volumes:
+      - greenbone-gpg-data:/etc/openvas/gnupg
+      - greenbone-vt-data:/var/lib/openvas/plugins
+      - greenbone-notus-data:/var/lib/notus
+      - greenbone-ospd-openvas-socket:/run/ospd
+      - greenbone-redis-socket:/run/redis/
+      - greenbone-openvas-data:/etc/openvas/
+      - greenbone-openvas-log-data:/var/log/openvas
+    networks:
+      - secnet
+    depends_on:
+      redis-server:
+        condition: service_started
+      gpg-data:
+        condition: service_completed_successfully
+      configure-openvas:
+        condition: service_completed_successfully
+      vulnerability-tests:
+        condition: service_healthy
+      notus-data:
+        condition: service_healthy
+    logging: *graylog-logging
+
+  gvm-tools:
+    image: registry.community.greenbone.net/community/gvm-tools:${GREENBONE_IMAGE_TAG:-latest}
+    profiles: ["vuln", "all"]
+    volumes:
+      - greenbone-gvmd-socket:/run/gvmd
+      - greenbone-ospd-openvas-socket:/run/ospd
+    networks:
+      - secnet
+    depends_on:
+      - gvmd
+      - ospd-openvas
+    logging: *graylog-logging
+
+networks:
+  secnet:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: "${SECNET_CIDR:-10.77.0.0/24}"
+          gateway: "${SECNET_GATEWAY:-10.77.0.1}"
+
+volumes:
+  fqdn-proxy-data:
+  fqdn-proxy-config:
+  vault-data:
+  vault-logs:
+  vault-rotator-state:
+  trivy-cache:
+  fluent-bit-state:
+  wazuh-indexer-data:
+  wazuh-manager-data:
+  wazuh-manager-logs:
+  wazuh-manager-queue:
+  graylog-mongo-data:
+  graylog-datanode-data:
+  graylog-data:
+  suricata-logs:
+  zeek-logs:
+  thehive-data:
+  shuffle-data:
+  velociraptor-data:
+  greenbone-gpg-data:
+  greenbone-scap-data:
+  greenbone-cert-data:
+  greenbone-data-objects:
+  greenbone-gvmd-data:
+  greenbone-psql-data:
+  greenbone-vt-data:
+  greenbone-notus-data:
+  greenbone-psql-socket:
+  greenbone-gvmd-socket:
+  greenbone-ospd-openvas-socket:
+  greenbone-redis-socket:
+  greenbone-openvas-data:
+  greenbone-openvas-log-data:
+  greenbone-gsa-data:
+  greenbone-nginx-config:
+  greenbone-nginx-certificates:

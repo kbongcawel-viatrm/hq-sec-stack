@@ -1,0 +1,4 @@
+interface:
+  display_name: "Vault Agent"
+  short_description: "Operate Vault secrets and rotation"
+  default_prompt: "Use $vault-agent to initialize Vault, manage hq-sec-stack secrets, and troubleshoot monthly rotation."

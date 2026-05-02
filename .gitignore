@@ -1,0 +1,8 @@
+.env
+backups/
+reports/container-vulnerabilities/
+reports/log-assessments/*/
+!reports/log-assessments/latest/
+!reports/log-assessments/latest/assessment.json
+!reports/log-assessments/latest/assessment.md
+*.local

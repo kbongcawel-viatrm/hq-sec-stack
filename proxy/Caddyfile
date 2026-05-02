@@ -1,0 +1,68 @@
+{
+    admin off
+    auto_https off
+}
+
+:80 {
+    respond /healthz 200
+}
+
+wazuh.hq-sec.local {
+    reverse_proxy https://wazuh-dashboard:5601 {
+        transport http {
+            tls_insecure_skip_verify
+        }
+    }
+}
+
+wazuh-api.hq-sec.local {
+    reverse_proxy https://wazuh-manager:55000 {
+        transport http {
+            tls_insecure_skip_verify
+        }
+    }
+}
+
+wazuh-indexer.hq-sec.local {
+    reverse_proxy https://wazuh-indexer:9200 {
+        transport http {
+            tls_insecure_skip_verify
+        }
+    }
+}
+
+graylog.hq-sec.local {
+    reverse_proxy http://graylog:9000
+}
+
+thehive.hq-sec.local {
+    reverse_proxy http://thehive:9000
+}
+
+shuffle.hq-sec.local {
+    reverse_proxy http://shuffle:3001
+}
+
+shuffle-api.hq-sec.local {
+    reverse_proxy http://shuffle:5001
+}
+
+velociraptor.hq-sec.local {
+    reverse_proxy http://velociraptor:8889
+}
+
+greenbone.hq-sec.local {
+    reverse_proxy https://greenbone-nginx:443 {
+        transport http {
+            tls_insecure_skip_verify
+        }
+    }
+}
+
+vault.hq-sec.local {
+    reverse_proxy http://vault:8200
+}
+
+reports.hq-sec.local {
+    reverse_proxy http://report-dashboard:80
+}
