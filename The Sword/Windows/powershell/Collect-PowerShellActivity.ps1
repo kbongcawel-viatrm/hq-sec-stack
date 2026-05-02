@@ -337,7 +337,8 @@ function Read-EventLogBatch {
     [int[]]$Ids
   )
 
-  $lastRecordId = Get-LastRecordId -Name $LogName
+  $stateName = "$LogName-$($Ids -join '_')"
+  $lastRecordId = Get-LastRecordId -Name $stateName
   try {
     $events = Get-WinEvent -FilterHashtable @{
       LogName = $LogName
@@ -361,7 +362,7 @@ function Read-EventLogBatch {
   }
 
   if ($maxRecordId -gt $lastRecordId) {
-    Set-LastRecordId -Name $LogName -RecordId $maxRecordId
+    Set-LastRecordId -Name $stateName -RecordId $maxRecordId
   }
 }
 
@@ -490,6 +491,59 @@ foreach ($event in $sysmonEvents) {
     transcript_offset = $null
     image = $image
     parent_image = $data["ParentImage"]
+    channel = $event.LogName
+    record_id = $event.RecordId
+    suspicious = $suspicion.suspicious
+    suspicious_reasons = $suspicion.reasons
+  }
+  Write-Activity -Activity $payload
+}
+
+$sysmonDetailEvents = Read-EventLogBatch -LogName "Microsoft-Windows-Sysmon/Operational" -Ids @(3, 7, 11, 12, 13, 14, 15, 22, 23, 255)
+
+foreach ($event in $sysmonDetailEvents) {
+  $data = Get-EventDataMap -Event $event
+  $image = Get-FirstValue -Map $data -Names @("Image", "ProcessName")
+  $target = Get-FirstValue -Map $data -Names @("TargetFilename", "TargetObject", "ImageLoaded", "QueryName", "DestinationHostname", "DestinationIp")
+  $command = ($data.Values | Where-Object { $_ }) -join " "
+  $suspicion = Get-Suspicion -Command $command
+  $sourceType = switch ($event.Id) {
+    3 { "sysmon_network_connection" }
+    7 { "sysmon_image_load" }
+    11 { "sysmon_file_create" }
+    12 { "sysmon_registry_event" }
+    13 { "sysmon_registry_event" }
+    14 { "sysmon_registry_event" }
+    15 { "sysmon_file_stream" }
+    22 { "sysmon_dns_query" }
+    23 { "sysmon_file_delete" }
+    255 { "sysmon_error" }
+    default { "sysmon_event" }
+  }
+
+  $payload = [ordered]@{
+    timestamp = $event.TimeCreated.ToUniversalTime().ToString("o")
+    host = $env:COMPUTERNAME
+    source_type = $sourceType
+    event_id = $event.Id
+    provider = $event.ProviderName
+    process_id = Get-FirstValue -Map $data -Names @("ProcessId", "SourceProcessId")
+    parent_process_id = $null
+    owner = Get-FirstValue -Map $data -Names @("User")
+    command = $command
+    script_block_text = $null
+    script_block_id = $null
+    script_path = $target
+    message_number = $null
+    message_total = $null
+    command_name = Get-FirstValue -Map $data -Names @("RuleName")
+    module_name = $null
+    context_info = $target
+    host_application = $null
+    transcript_path = $null
+    transcript_offset = $null
+    image = $image
+    parent_image = $null
     channel = $event.LogName
     record_id = $event.RecordId
     suspicious = $suspicion.suspicious
