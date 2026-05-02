@@ -265,7 +265,7 @@ This repo includes endpoint-side detection and response artifacts:
 | Graylog filters | `The Eyes/Graylog/queries/security-filters.md` |
 | TheHive flow | `The Eyes/thehive/alert-flow.md` |
 | Velociraptor hunts | `The Shield/velociraptor/hunt-plan.md` |
-| Ansible response | `The Sword/Ansible/playbooks/windows-isolate.yml`, `The Sword/Ansible/playbooks/windows-collect-artifacts.yml` |
+| Ansible response | `The Sword/Ansible/playbooks/windows-contain-malicious.yml`, `The Sword/Ansible/playbooks/windows-isolate.yml`, `The Sword/Ansible/playbooks/windows-applocker-containment.yml`, `The Sword/Ansible/playbooks/windows-collect-artifacts.yml` |
 
 See [docs/windows-endpoint-detection.md](docs/windows-endpoint-detection.md) for the full telemetry and response flow.
 

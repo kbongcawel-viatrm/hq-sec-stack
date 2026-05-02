@@ -10,7 +10,7 @@
 8. Wazuh applies detection rules and raises alerts.
 9. TheHive receives confirmed alerts and manages cases/tasks.
 10. Velociraptor performs live querying, forensic collection, and threat hunting.
-11. Ansible performs approved response: isolate host, block IPs, stop services, pull artifacts, reapply security config.
+11. Ansible performs approved response: collect artifacts, apply AppLocker containment, isolate the host to the SOC subnet, stop suspicious services, and preserve response markers for TheHive.
 
 ## PowerShell Logging Fallback
 
