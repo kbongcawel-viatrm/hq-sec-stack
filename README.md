@@ -1,3 +1,5 @@
+<img width="1920" height="1396" alt="vecteezy_futuristic-polygon-david_16219341" src="https://github.com/user-attachments/assets/8309a77b-b787-4f72-b2d5-82032291b122" />
+
 # HQ Security Stack
 
 A comprehensive home security stack aimed at implementing file integrity monitoring (FIM), alerting, intrusion prevention/detection systems (IPS/IDS), log assessment and forensics, log aggregation visualization, and response and mitigation steps for possible malicious attacks.
