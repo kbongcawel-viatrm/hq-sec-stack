@@ -12,7 +12,7 @@ Ensure Ollama has internal access and connectivity to all other containers but e
 
 Ensure our DNS is internal and not exposed to the internet. This is to avoid our DNS from being used to track us.
 
-Setup portainer to monitor our docker environment and containers. This will allow us to monitor containers with GUI. Place this under the category of management tools. Add documentation to the Readme.md file for portainer.
+~~Setup portainer to monitor our docker environment and containers. This will allow us to monitor containers with GUI. Place this under the category of management tools. Add documentation to the Readme.md file for portainer.~~
 
 The flow should be:
 

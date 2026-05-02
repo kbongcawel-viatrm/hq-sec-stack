@@ -106,6 +106,7 @@ The killswitch never removes named volumes, `./The Hands/backups`, or `./The Han
 | Graylog | `graylog` | `http://localhost:9000` | `graylog.hq-sec.local` | `http://graylog:9000` |
 | Graylog GELF | `graylog` | `localhost:12201/udp` | none | `graylog:12201/udp` |
 | CrowdSec | `crowdsec` | `localhost:8080` | none | `http://crowdsec:8080` |
+| Portainer | `portainer` | `https://localhost:9443`, `http://localhost:9000` | none | `https://portainer:9443` |
 | --- | --- |
 | Wazuh rules and FIM | `The Brain/Wazuh/rules/local_rules.xml`, `The Brain/Wazuh/agent/ossec.conf` |
 | PowerShell logging | `The Sword/Windows/powershell/Install-PowerShellLoggingTask.ps1`, `The Sword/Windows/powershell/Collect-PowerShellActivity.ps1` |
@@ -207,6 +208,17 @@ Create monitors for the FQDNs and internal endpoints listed in the services tabl
 The desired monitor inventory is tracked in `The Eyes/Uptime-Kuma/monitors.yml` and reconciled by `uptime-kuma-sync` when `UPTIME_KUMA_PASSWORD` is set in `.env`. See [docs/uptime-dashboard.md](docs/uptime-dashboard.md).
 
 Repository rule: every new service, container, FQDN, host port, or internal endpoint must be added to `The Eyes/Uptime-Kuma/monitors.yml` in the same change.
+
+## Management Tools (Portainer)
+
+The stack includes Portainer to monitor and manage the local Docker environment and containers via a GUI. It is available at:
+
+```text
+https://localhost:9443
+http://localhost:9000
+```
+
+Portainer runs under the `monitor` and `ops` profiles. Because it requires access to the Docker socket to manage containers, its endpoint is restricted to the local host network by default.
 
 ## Service Categories
 

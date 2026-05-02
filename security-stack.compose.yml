@@ -196,6 +196,25 @@ services:
       retries: 5
     logging: *graylog-logging
 
+  ############################################################
+  # Management Tools
+  ############################################################
+
+  portainer:
+    image: portainer/portainer-ce:${PORTAINER_VERSION:-latest}
+    container_name: portainer
+    profiles: ["ops", "monitor", "all"]
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - portainer-data:/data
+    networks:
+      - secnet
+    ports:
+      - "${STACK_BIND_IP:-0.0.0.0}:${PORTAINER_HTTP_PORT:-9000}:9000"
+      - "${STACK_BIND_IP:-0.0.0.0}:${PORTAINER_HTTPS_PORT:-9443}:9443"
+    logging: *graylog-logging
+
   log-forwarder:
     image: fluent/fluent-bit:${FLUENT_BIT_VERSION:-3.2.10}
     container_name: log-forwarder
@@ -1227,5 +1246,6 @@ volumes:
   crowdsec-data:
   crowdsec-config:
   caddy-logs:
+  portainer-data:
 
 
