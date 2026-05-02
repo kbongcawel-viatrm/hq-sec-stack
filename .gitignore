@@ -13,4 +13,11 @@ The Sword/Suricata/rules/suricata.rules
 The Sword/Suricata/rules/*.config
 The Sword/Suricata/rules/*.backup
 The Sword/Suricata/rules/.cache/
+_tmp_ossec_docker/
+_tmp_ossec_docker/*
+downloads/
+downloads/*
+wsl/
+wsl/*
+client.keys
 
