@@ -1,7 +1,6 @@
 # The Brain
 
-Alert, visualization, SIEM, and local LLM reasoning.
+Alert, visualization, and SIEM. Passive data aggregation and detection.
 
 - `Wazuh`
-- `Ollama`
 - `OSSEC`

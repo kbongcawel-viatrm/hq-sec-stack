@@ -95,10 +95,14 @@ services:
       retries: 5
     logging: *graylog-logging
 
+  ############################################################
+  # The Ghost - LLM Governance (governs above all pillars)
+  ############################################################
+
   ollama:
     image: ollama/ollama:${OLLAMA_VERSION:-0.20.7}
     container_name: ollama
-    profiles: ["ops", "dashboard", "llm", "all"]
+    profiles: ["ghost", "llm", "all"]
     volumes:
       - ollama-data:/root/.ollama
     networks:
@@ -117,7 +121,7 @@ services:
   ollama-model-pull:
     image: ollama/ollama:${OLLAMA_VERSION:-0.20.7}
     container_name: ollama-model-pull
-    profiles: ["ops", "dashboard", "llm", "all"]
+    profiles: ["ghost", "llm", "all"]
     environment:
       OLLAMA_HOST: "${OLLAMA_URL:-http://ollama:11434}"
       OLLAMA_MODEL: "${OLLAMA_MODEL:-llama3.2}"
@@ -260,26 +264,39 @@ services:
   ollama-assessor:
     image: python:${PYTHON_ALPINE_VERSION:-3.12-alpine}
     container_name: ollama-assessor
-    profiles: ["ops", "dashboard", "llm", "all"]
+    profiles: ["ghost", "llm", "all"]
     environment:
+      # The Ghost — Ollama engine
       OLLAMA_URL: "${OLLAMA_URL:-http://ollama:11434}"
       OLLAMA_MODEL: "${OLLAMA_MODEL:-llama3.2}"
       OLLAMA_ANALYSIS_CRON: "${OLLAMA_ANALYSIS_CRON:-0 2 * * *}"
       OLLAMA_ANALYSIS_RUN_ON_STARTUP: "${OLLAMA_ANALYSIS_RUN_ON_STARTUP:-true}"
       OLLAMA_ANALYSIS_MAX_LOG_LINES: "${OLLAMA_ANALYSIS_MAX_LOG_LINES:-2500}"
       OLLAMA_ANALYSIS_CONTEXT_CHARS: "${OLLAMA_ANALYSIS_CONTEXT_CHARS:-24000}"
+      # Brain — Graylog API
       GRAYLOG_API_URL: "${GRAYLOG_API_URL:-http://graylog:9000/api}"
       GRAYLOG_ROOT_USERNAME: "${GRAYLOG_ROOT_USERNAME:-admin}"
       GRAYLOG_ROOT_PASSWORD: "${GRAYLOG_ROOT_PASSWORD:-admin}"
+      # Shield/Sword — CrowdSec LAPI
+      CROWDSEC_LAPI_URL: "${CROWDSEC_LAPI_URL:-http://crowdsec:8080}"
+      CROWDSEC_API_KEY: "${CROWDSEC_API_KEY:-}"
+      # Hands — Uptime-Kuma reachability
+      UPTIME_KUMA_URL: "${UPTIME_KUMA_URL:-http://uptime-kuma:3001}"
     volumes:
-      - "./The Brain/Ollama/scripts:/ollama/scripts:ro"
+      - "./The Ghost/Ollama/scripts:/ollama/scripts:ro"
       - "./The Hands/reports/data:/reports"
+      - "./The Hands/backups:/backups:ro"
       - "./The Hands/reports/data/container-vulnerabilities:/evidence/container-vulnerabilities:ro"
+      # Eyes — network perception
       - suricata-logs:/logs/suricata:ro
       - zeek-logs:/logs/zeek:ro
+      - caddy-logs:/logs/caddy:ro
+      # Brain — SIEM logs
       - wazuh-manager-logs:/logs/wazuh-manager:ro
+      # Shield — secrets, vuln, and block logs
       - vault-logs:/logs/vault:ro
       - greenbone-openvas-log-data:/logs/openvas:ro
+      - crowdsec-data:/logs/crowdsec:ro
     entrypoint: ["python", "/ollama/scripts/analyze_stack.py"]
     networks:
       - secnet
@@ -745,8 +762,8 @@ services:
     volumes:
       - crowdsec-data:/var/lib/crowdsec/data
       - crowdsec-config:/etc/crowdsec
-      - "./The Shield/crowdsec/acquis.yaml:/etc/crowdsec/acquis.yaml:ro"
-      - "./The Shield/crowdsec/profiles.yaml:/etc/crowdsec/profiles.yaml:ro"
+      - "./The Sword/crowdsec/acquis.yaml:/etc/crowdsec/acquis.yaml:ro"
+      - "./The Sword/crowdsec/profiles.yaml:/etc/crowdsec/profiles.yaml:ro"
       - wazuh-manager-logs:/var/log/wazuh:ro
       - suricata-logs:/var/log/suricata:ro
       - caddy-logs:/var/log/caddy:ro
