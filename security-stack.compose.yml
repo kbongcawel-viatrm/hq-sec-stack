@@ -124,7 +124,7 @@ services:
     profiles: ["ghost", "llm", "all"]
     environment:
       OLLAMA_HOST: "${OLLAMA_URL:-http://ollama:11434}"
-      OLLAMA_MODEL: "${OLLAMA_MODEL:-llama3.2}"
+      OLLAMA_MODELS: "${OLLAMA_MODELS_TO_PULL:-llama3.2}"
     entrypoint:
       - /bin/sh
       - -c
@@ -132,7 +132,10 @@ services:
         until ollama list >/dev/null 2>&1; do
           sleep 5
         done
-        ollama pull "$${OLLAMA_MODEL}"
+        for model in $${OLLAMA_MODELS}; do
+          echo "The Ghost is preparing model: $${model}"
+          ollama pull "$${model}"
+        done
     networks:
       - secnet
     restart: "no"

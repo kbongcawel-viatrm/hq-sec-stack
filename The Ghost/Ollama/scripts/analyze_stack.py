@@ -31,9 +31,7 @@ LATEST_DIRS_D  = DIRECTIVES_DIR / "latest"
 # ── Log sources organised by pillar ──────────────────────────────────────────
 PILLAR_LOGS = {
     "eyes":   {
-        "suricata": Path("/logs/suricata"),
-        "zeek":     Path("/logs/zeek"),
-        "caddy":    Path("/logs/caddy"),
+        # Primary perception via Graylog/TheHive APIs
     },
     "brain":  {
         "wazuh":    Path("/logs/wazuh-manager"),
@@ -41,7 +39,14 @@ PILLAR_LOGS = {
     "shield": {
         "vault":    Path("/logs/vault"),
         "openvas":  Path("/logs/openvas"),
+    },
+    "sword": {
+        "suricata": Path("/logs/suricata"),
+        "zeek":     Path("/logs/zeek"),
         "crowdsec": Path("/logs/crowdsec"),
+    },
+    "hands": {
+        "caddy":    Path("/logs/caddy"),
     },
 }
 
