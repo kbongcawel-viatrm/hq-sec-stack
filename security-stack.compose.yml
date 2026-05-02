@@ -1,6 +1,6 @@
 # security-stack.compose.yml
 #
-# Linux-focused security monitoring and incident-response lab stack.
+# Windows-focused security monitoring and incident-response lab stack.
 #
 # Usage:
 #   cp .env.example .env
