@@ -5,7 +5,7 @@ The Ghost    - uses "The Eyes" services to read and understand.
              - uses "The Brains" services to analyze and make decision.
              - hardens "The Shield" for resilience.
              - executes with "The Sword".
-             - uses "The Hands" to support.
+             - uses "The Hands" for supporting day to day battle.
 ```
 
 # HQ Security Stack
