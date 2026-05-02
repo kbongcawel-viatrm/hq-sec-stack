@@ -1,5 +1,13 @@
 <img width="1918" height="724" alt="IMG_0015" src="https://github.com/user-attachments/assets/170ed071-d6de-4dd4-b14e-f11aff66c2cc" />
 
+```bash
+The Ghost    - uses "The Eyes" services to read and understand.
+             - uses "The Brains" services to analyze and make decision.
+             - hardens "The Shield" for resilience.
+             - executes with "The Sword".
+             - uses "The Hands" to support.
+```
+
 # HQ Security Stack
 
 A comprehensive home security stack aimed at implementing file integrity monitoring, alerting, intrusion prevention/detection systems, log assessment and forensics, log aggregation visualization, and response mitigation.
