@@ -105,6 +105,7 @@ The killswitch never removes named volumes, `./The Hands/backups`, or `./The Han
 | Wazuh Indexer | `wazuh-indexer` | `https://localhost:9200` | `wazuh-indexer.hq-sec.local` | `https://wazuh-indexer:9200` |
 | Graylog | `graylog` | `http://localhost:9000` | `graylog.hq-sec.local` | `http://graylog:9000` |
 | Graylog GELF | `graylog` | `localhost:12201/udp` | none | `graylog:12201/udp` |
+| CrowdSec | `crowdsec` | `localhost:8080` | none | `http://crowdsec:8080` |
 | --- | --- |
 | Wazuh rules and FIM | `The Brain/Wazuh/rules/local_rules.xml`, `The Brain/Wazuh/agent/ossec.conf` |
 | PowerShell logging | `The Sword/Windows/powershell/Install-PowerShellLoggingTask.ps1`, `The Sword/Windows/powershell/Collect-PowerShellActivity.ps1` |
@@ -117,6 +118,20 @@ The killswitch never removes named volumes, `./The Hands/backups`, or `./The Han
 | Ansible response | `The Sword/Ansible/playbooks/windows-contain-malicious.yml`, `The Sword/Ansible/playbooks/windows-isolate.yml`, `The Sword/Ansible/playbooks/windows-applocker-containment.yml`, `The Sword/Ansible/playbooks/windows-collect-artifacts.yml` |
 
 See [docs/windows-endpoint-detection.md](docs/windows-endpoint-detection.md) for the full telemetry and response flow.
+
+## Intrusion Prevention (CrowdSec)
+
+CrowdSec is integrated into the stack to consume logs from Wazuh, Suricata, and Caddy. It detects malicious patterns and automatically pulls down community blocklists.
+
+Caddy (`fqdn-proxy`) is built locally via a custom `Dockerfile` with the `caddy-crowdsec-bouncer` plugin to actively block flagged IPs from accessing your endpoints.
+
+To ensure Caddy and CrowdSec authenticate automatically on startup, set a secure random key in your `.env` file:
+
+```text
+CADDY_CROWDSEC_API_KEY=YourSuperSecretKey123
+```
+
+CrowdSec auto-provisions this bouncer key on launch, and Caddy immediately uses it to enforce blocks (returning 403 Forbidden to malicious IPs).
 
 ## Backup And Recovery
 
