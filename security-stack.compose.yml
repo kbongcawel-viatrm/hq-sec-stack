@@ -52,15 +52,21 @@ services:
     logging: *graylog-logging
 
   fqdn-proxy:
-    image: caddy:${CADDY_VERSION:-2.8.4-alpine}
+    build:
+      context: "./The Hands/FQDN proxy - Caddy"
+      dockerfile: Dockerfile
+    image: hq-sec/caddy-crowdsec
     container_name: fqdn-proxy
     profiles: ["dns", "all"]
+    environment:
+      CADDY_CROWDSEC_API_KEY: "${CADDY_CROWDSEC_API_KEY}"
     ports:
       - "${FQDN_HTTP_HOST_IP:-0.0.0.0}:${FQDN_HTTP_PORT:-80}:80"
     volumes:
       - "./The Hands/FQDN proxy - Caddy/Caddyfile:/etc/caddy/Caddyfile:ro"
       - fqdn-proxy-data:/data
       - fqdn-proxy-config:/config
+      - caddy-logs:/var/log/caddy
     networks:
       secnet:
         ipv4_address: "${FQDN_PROXY_IPV4:-10.77.0.80}"
@@ -355,6 +361,8 @@ services:
       - thehive-data:/sources/thehive-data:ro
       - shuffle-data:/sources/shuffle-data:ro
       - velociraptor-data:/sources/velociraptor-data:ro
+      - crowdsec-data:/sources/crowdsec-data:ro
+      - crowdsec-config:/sources/crowdsec-config:ro
       - greenbone-gpg-data:/sources/greenbone-gpg-data:ro
       - greenbone-scap-data:/sources/greenbone-scap-data:ro
       - greenbone-cert-data:/sources/greenbone-cert-data:ro
@@ -702,6 +710,28 @@ services:
       timeout: 10s
       retries: 20
       start_period: 90s
+    logging: *graylog-logging
+
+  crowdsec:
+    image: crowdsecurity/crowdsec:${CROWDSEC_VERSION:-v1.6.3}
+    container_name: crowdsec
+    profiles: ["ir", "all", "shield"]
+    environment:
+      COLLECTIONS: "crowdsecurity/linux crowdsecurity/windows crowdsecurity/suricata crowdsecurity/caddy"
+      BOUNCER_KEY_caddy: "${CADDY_CROWDSEC_API_KEY}"
+    ports:
+      - "${STACK_BIND_IP:-0.0.0.0}:${CROWDSEC_LAPI_PORT:-8080}:8080"
+    volumes:
+      - crowdsec-data:/var/lib/crowdsec/data
+      - crowdsec-config:/etc/crowdsec
+      - "./The Shield/crowdsec/acquis.yaml:/etc/crowdsec/acquis.yaml:ro"
+      - "./The Shield/crowdsec/profiles.yaml:/etc/crowdsec/profiles.yaml:ro"
+      - wazuh-manager-logs:/var/log/wazuh:ro
+      - suricata-logs:/var/log/suricata:ro
+      - caddy-logs:/var/log/caddy:ro
+    networks:
+      - secnet
+    restart: unless-stopped
     logging: *graylog-logging
 
   ansible-ir:
@@ -1162,5 +1192,8 @@ volumes:
   greenbone-gsa-data:
   greenbone-nginx-config:
   greenbone-nginx-certificates:
+  crowdsec-data:
+  crowdsec-config:
+  caddy-logs:
 
 

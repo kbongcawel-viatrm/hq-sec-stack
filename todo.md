@@ -1,16 +1,18 @@
-2. Create powershell logging scripts using task scheduler to log and flag powershell ran logs/commands. It should gather the process, processID, owner, and the commands ran. We should create a script that runs and if powershell is used, it will send it to graylog. It should be able to log everything including powershell commands that are run. This is for the case that the agent is removed.
-3. Create Wazuh configuration rules needed for detection, file integrity checking, and alerting. It should be able to detect powershell commands that are run in the event that the agent is removed.
-4. Create Graylog regex queries to easily filter flagged logs e.g. logged powershell commands, syscheck, file integrity changes, and suspicious network activities.
-5. Sysmon configuration to get who ran the flagged activities and how. This is for the case that the agent is removed.
-6. Suricata configuration for IDS.
-7. The hive for: Case management, Alert ingestion, Task assignment & tracking
-8. Velociraptor
-   Endpoint visibility & live querying
-   Digital forensics collection
-   Threat hunting across endpoints
-   9.Fluent Bit = collects, parses, filters, and forwards logs
-   Graylog = stores, searches, visualizes, alerts, and correlates logs
-   10 Ansible creates ansible playbooks to be triggered as response to flagged malicious attacks: - Isolate instance by removing its network connectivity.
+update README.md and simplify
+
+~~Create the crowdsec and applocker iner configuration files.~~
+
+add nmap and wireshark container configuration files.
+
+~~Create crowdsec container and configuration files.~~
+
+~~add crowdsec rules to block malicious ip addresses.~~
+
+Ensure Ollama has internal access and connectivity to all other containers but ensure that our services are not publicly available to the internet. Let's maximize use of private routing and private DNS to limit exposure of our infrastructure to the internet.
+
+Ensure our DNS is internal and not exposed to the internet. This is to avoid our DNS from being used to track us.
+
+Setup portainer to monitor our docker environment and containers. This will allow us to monitor containers with GUI. Place this under the category of management tools. Add documentation to the Readme.md file for portainer.
 
 The flow should be:
 
@@ -81,15 +83,4 @@ The flow should be:
 - AppLocker enforcement
 - Backup/restore if needed
 
-update .gitignore to exclude files that have sensitive information
 7:18 PM
-
-update README.md and simplify
-
-Create the crowdstrike, fail2ban, and Applocker container configuration files.
-
-add nmap and wireshark container configuration files.
-
-Create crowdsec container and configuration files.
-
-add crowdsec rules to block malicious ip addresses.

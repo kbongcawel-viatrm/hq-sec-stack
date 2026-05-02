@@ -1,6 +1,18 @@
 {
     admin off
     auto_https off
+    
+    # Send all access logs to a single JSON file for Crowdsec
+    log default {
+        output file /var/log/caddy/access.log
+        format json
+    }
+
+    # CrowdSec Bouncer configuration
+    crowdsec {
+        api_url http://crowdsec:8080/
+        api_key {env.CADDY_CROWDSEC_API_KEY}
+    }
 }
 
 :80 {
