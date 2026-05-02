@@ -97,6 +97,40 @@ function Get-Suspicion {
   }
 }
 
+function Get-FirstValue {
+  param(
+    [hashtable]$Map,
+    [string[]]$Names
+  )
+
+  foreach ($name in $Names) {
+    if ($Map.ContainsKey($name) -and -not [string]::IsNullOrWhiteSpace($Map[$name])) {
+      return $Map[$name]
+    }
+  }
+
+  return $null
+}
+
+function Split-TextChunk {
+  param(
+    [string]$Text,
+    [int]$MaxLength = 6000
+  )
+
+  if ([string]::IsNullOrEmpty($Text)) {
+    return @()
+  }
+
+  $chunks = @()
+  for ($offset = 0; $offset -lt $Text.Length; $offset += $MaxLength) {
+    $length = [Math]::Min($MaxLength, $Text.Length - $offset)
+    $chunks += $Text.Substring($offset, $length)
+  }
+
+  return $chunks
+}
+
 function Send-GelfMessage {
   param([hashtable]$Payload)
 
@@ -151,6 +185,17 @@ function Send-WazuhSyslogMessage {
     parent_process_id = $Activity.parent_process_id
     owner = $Activity.owner
     command = $Activity.command
+    script_block_text = $Activity.script_block_text
+    script_block_id = $Activity.script_block_id
+    script_path = $Activity.script_path
+    message_number = $Activity.message_number
+    message_total = $Activity.message_total
+    command_name = $Activity.command_name
+    module_name = $Activity.module_name
+    context_info = $Activity.context_info
+    host_application = $Activity.host_application
+    transcript_path = $Activity.transcript_path
+    transcript_offset = $Activity.transcript_offset
     image = $Activity.image
     parent_image = $Activity.parent_image
     suspicious = if ($Activity.suspicious) { 1 } else { 0 }
@@ -202,6 +247,17 @@ function Write-Activity {
     _parent_process_id = $Activity.parent_process_id
     _owner = $Activity.owner
     _command = $Activity.command
+    _script_block_text = $Activity.script_block_text
+    _script_block_id = $Activity.script_block_id
+    _script_path = $Activity.script_path
+    _message_number = $Activity.message_number
+    _message_total = $Activity.message_total
+    _command_name = $Activity.command_name
+    _module_name = $Activity.module_name
+    _context_info = $Activity.context_info
+    _host_application = $Activity.host_application
+    _transcript_path = $Activity.transcript_path
+    _transcript_offset = $Activity.transcript_offset
     _image = $Activity.image
     _parent_image = $Activity.parent_image
     _suspicious = if ($Activity.suspicious) { 1 } else { 0 }
@@ -210,6 +266,69 @@ function Write-Activity {
 
   Send-GelfMessage -Payload $gelf
   Send-WazuhSyslogMessage -Activity $Activity
+}
+
+function Read-TranscriptBatch {
+  $transcriptFiles = Get-ChildItem -Path $OutputDirectory -Filter "*.txt" -File -Recurse -ErrorAction SilentlyContinue |
+    Where-Object { $_.Name -match '^PowerShell_transcript\.' } |
+    Sort-Object FullName
+
+  foreach ($file in $transcriptFiles) {
+    $stateName = "transcript_$($file.FullName)"
+    $lastOffset = Get-LastRecordId -Name $stateName
+    if ($file.Length -le $lastOffset) {
+      continue
+    }
+
+    $stream = [System.IO.File]::Open($file.FullName, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite)
+    try {
+      [void]$stream.Seek($lastOffset, [System.IO.SeekOrigin]::Begin)
+      $reader = New-Object System.IO.StreamReader($stream, [System.Text.Encoding]::UTF8, $true)
+      $newText = $reader.ReadToEnd()
+    } finally {
+      $stream.Close()
+    }
+
+    $newOffset = $file.Length
+    Set-LastRecordId -Name $stateName -RecordId $newOffset
+
+    foreach ($chunk in (Split-TextChunk -Text $newText)) {
+      if ([string]::IsNullOrWhiteSpace($chunk)) {
+        continue
+      }
+
+      $suspicion = Get-Suspicion -Command $chunk
+      $payload = [ordered]@{
+        timestamp = (Get-Date).ToUniversalTime().ToString("o")
+        host = $env:COMPUTERNAME
+        source_type = "powershell_transcript"
+        event_id = 0
+        provider = "PowerShell-Transcript"
+        process_id = $PID
+        parent_process_id = $null
+        owner = $env:USERNAME
+        command = $chunk
+        script_block_text = $null
+        script_block_id = $null
+        script_path = $null
+        message_number = $null
+        message_total = $null
+        command_name = $null
+        module_name = $null
+        context_info = $null
+        host_application = $null
+        transcript_path = $file.FullName
+        transcript_offset = $lastOffset
+        image = "transcript"
+        parent_image = $null
+        channel = "PowerShell-Transcript"
+        record_id = $newOffset
+        suspicious = $suspicion.suspicious
+        suspicious_reasons = $suspicion.reasons
+      }
+      Write-Activity -Activity $payload
+    }
+  }
 }
 
 function Read-EventLogBatch {
@@ -250,7 +369,14 @@ $powerShellEvents = Read-EventLogBatch -LogName "Microsoft-Windows-PowerShell/Op
 
 foreach ($event in $powerShellEvents) {
   $data = Get-EventDataMap -Event $event
-  $command = ($data.Values | Where-Object { $_ }) -join " "
+  $scriptBlockText = Get-FirstValue -Map $data -Names @("ScriptBlockText")
+  $contextInfo = Get-FirstValue -Map $data -Names @("ContextInfo")
+  $payloadText = Get-FirstValue -Map $data -Names @("Payload")
+  $hostApplication = Get-FirstValue -Map $data -Names @("HostApplication")
+  $command = Get-FirstValue -Map $data -Names @("ScriptBlockText", "Payload", "ContextInfo", "CommandLine", "HostApplication")
+  if ([string]::IsNullOrWhiteSpace($command)) {
+    $command = ($data.Values | Where-Object { $_ }) -join " "
+  }
   $suspicion = Get-Suspicion -Command $command
   $payload = [ordered]@{
     timestamp = $event.TimeCreated.ToUniversalTime().ToString("o")
@@ -262,6 +388,17 @@ foreach ($event in $powerShellEvents) {
     parent_process_id = $null
     owner = Convert-SidToName -Sid $event.UserId
     command = $command
+    script_block_text = $scriptBlockText
+    script_block_id = Get-FirstValue -Map $data -Names @("ScriptBlockId")
+    script_path = Get-FirstValue -Map $data -Names @("Path")
+    message_number = Get-FirstValue -Map $data -Names @("MessageNumber")
+    message_total = Get-FirstValue -Map $data -Names @("MessageTotal")
+    command_name = Get-FirstValue -Map $data -Names @("CommandName")
+    module_name = Get-FirstValue -Map $data -Names @("ModuleName")
+    context_info = if ($contextInfo) { $contextInfo } else { $payloadText }
+    host_application = $hostApplication
+    transcript_path = $null
+    transcript_offset = $null
     image = "powershell"
     parent_image = $null
     channel = $event.LogName
@@ -298,6 +435,17 @@ foreach ($event in $securityEvents) {
     parent_process_id = $data["ProcessId"]
     owner = $owner
     command = $command
+    script_block_text = $null
+    script_block_id = $null
+    script_path = $null
+    message_number = $null
+    message_total = $null
+    command_name = $null
+    module_name = $null
+    context_info = $null
+    host_application = $null
+    transcript_path = $null
+    transcript_offset = $null
     image = $image
     parent_image = $data["ParentProcessName"]
     channel = $event.LogName
@@ -329,6 +477,17 @@ foreach ($event in $sysmonEvents) {
     parent_process_id = $data["ParentProcessId"]
     owner = $data["User"]
     command = $command
+    script_block_text = $null
+    script_block_id = $null
+    script_path = $null
+    message_number = $null
+    message_total = $null
+    command_name = $null
+    module_name = $null
+    context_info = $null
+    host_application = $null
+    transcript_path = $null
+    transcript_offset = $null
     image = $image
     parent_image = $data["ParentImage"]
     channel = $event.LogName
@@ -338,3 +497,5 @@ foreach ($event in $sysmonEvents) {
   }
   Write-Activity -Activity $payload
 }
+
+Read-TranscriptBatch
