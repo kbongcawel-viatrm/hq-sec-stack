@@ -68,6 +68,22 @@
     <mitre><id>T1562.001</id></mitre>
   </rule>
 
+  <rule id="100112" level="12">
+    <if_group>windows,system,</if_group>
+    <field name="win.system.providerName">Service Control Manager</field>
+    <field name="win.system.eventID" type="pcre2">7036|7040|7045</field>
+    <match>Wazuh|OssecSvc|OSSEC|Sysmon|EventLog</match>
+    <description>Endpoint telemetry service stopped, changed, or installed</description>
+    <mitre><id>T1562.001</id></mitre>
+  </rule>
+
+  <rule id="100113" level="11">
+    <if_group>windows,task_scheduler,</if_group>
+    <match>HQSec-PowerShell-Command-Audit|Collect-PowerShellActivity.ps1</match>
+    <description>PowerShell fallback monitoring scheduled task changed</description>
+    <mitre><id>T1562.001</id></mitre>
+  </rule>
+
   <rule id="100102" level="12">
     <if_group>syscheck</if_group>
     <field name="file" type="pcre2">(?i)\\Windows\\System32\\drivers\\etc\\hosts$|\\Windows\\System32\\config\\SAM$|\\Windows\\System32\\config\\SYSTEM$|\\Windows\\System32\\config\\SECURITY$|\\Windows\\System32\\GroupPolicy\\|\\Windows\\System32\\Tasks\\|\\Start Menu\\Programs\\Startup\\|\\Documents\\WindowsPowerShell\\|\\Documents\\PowerShell\\|\\ProgramData\\HQSec\\PowerShellLogs\\</field>
