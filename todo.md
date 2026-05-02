@@ -2,7 +2,7 @@ update README.md and simplify
 
 ~~Create the crowdsec and applocker iner configuration files.~~
 
-add nmap and wireshark container configuration files.
+~~add nmap and wireshark container configuration files.~~
 
 ~~Create crowdsec container and configuration files.~~
 

@@ -558,6 +558,8 @@ services:
     ports:
       - "${STACK_BIND_IP:-0.0.0.0}:${GRAYLOG_HTTP_PORT:-9000}:9000"
       - "${STACK_BIND_IP:-0.0.0.0}:${GRAYLOG_GELF_UDP_PORT:-12201}:12201/udp"
+      - "${STACK_BIND_IP:-0.0.0.0}:12202:12202/udp"
+      - "${STACK_BIND_IP:-0.0.0.0}:12203:12203/udp"
       - "${STACK_BIND_IP:-0.0.0.0}:${GRAYLOG_SYSLOG_TCP_PORT:-5514}:1514/tcp"
       - "${STACK_BIND_IP:-0.0.0.0}:${GRAYLOG_SYSLOG_UDP_PORT:-5514}:1514/udp"
     volumes:
@@ -1144,6 +1146,36 @@ services:
       - gvmd
       - ospd-openvas
     logging: *graylog-logging
+
+  nmap-scanner:
+    build:
+      context: "./The Eyes/nmap"
+      dockerfile: Dockerfile
+    container_name: nmap-scanner
+    profiles: ["network", "all"]
+    networks:
+      - secnet
+    restart: unless-stopped
+    logging:
+      driver: gelf
+      options:
+        gelf-address: "udp://${GRAYLOG_GELF_ADDRESS:-127.0.0.1}:12202"
+
+  wireshark-scanner:
+    build:
+      context: "./The Eyes/wireshark"
+      dockerfile: Dockerfile
+    container_name: wireshark-scanner
+    profiles: ["network", "all"]
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    restart: unless-stopped
+    logging:
+      driver: gelf
+      options:
+        gelf-address: "udp://${GRAYLOG_GELF_ADDRESS:-127.0.0.1}:12203"
 
 networks:
   secnet:
