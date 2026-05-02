@@ -123,8 +123,8 @@ services:
     container_name: ollama-model-pull
     profiles: ["ghost", "llm", "all"]
     environment:
-      OLLAMA_HOST: "${OLLAMA_URL:-http://ollama:11434}"
-      OLLAMA_MODEL: "${OLLAMA_MODEL:-llama3.2}"
+      OLLAMA_HOST: "${GHOST_LOCAL_API:-http://ollama:11434}"
+      OLLAMA_MODELS: "${GHOST_MODELS_TO_PULL:-llama3.2}"
     entrypoint:
       - /bin/sh
       - -c
@@ -132,7 +132,10 @@ services:
         until ollama list >/dev/null 2>&1; do
           sleep 5
         done
-        ollama pull "$${OLLAMA_MODEL}"
+        for model in $${OLLAMA_MODELS}; do
+          echo "The Ghost is preparing model: $${model}"
+          ollama pull "$${model}"
+        done
     networks:
       - secnet
     restart: "no"
@@ -261,18 +264,19 @@ services:
         condition: service_healthy
     logging: *graylog-logging
 
-  ollama-assessor:
+  ghost-assessor:
     image: python:${PYTHON_ALPINE_VERSION:-3.12-alpine}
-    container_name: ollama-assessor
+    container_name: ghost-assessor
     profiles: ["ghost", "llm", "all"]
     environment:
-      # The Ghost — Ollama engine
-      OLLAMA_URL: "${OLLAMA_URL:-http://ollama:11434}"
-      OLLAMA_MODEL: "${OLLAMA_MODEL:-llama3.2}"
-      OLLAMA_ANALYSIS_CRON: "${OLLAMA_ANALYSIS_CRON:-0 2 * * *}"
-      OLLAMA_ANALYSIS_RUN_ON_STARTUP: "${OLLAMA_ANALYSIS_RUN_ON_STARTUP:-true}"
-      OLLAMA_ANALYSIS_MAX_LOG_LINES: "${OLLAMA_ANALYSIS_MAX_LOG_LINES:-2500}"
-      OLLAMA_ANALYSIS_CONTEXT_CHARS: "${OLLAMA_ANALYSIS_CONTEXT_CHARS:-24000}"
+      # The Ghost — Intelligence
+      GHOST_MODEL: "${GHOST_MODEL:-gpt-4-turbo}"
+      GHOST_MODELS_TO_PULL: "${GHOST_MODELS_TO_PULL:-llama3.2}"
+      GHOST_CRON: "${GHOST_CRON:-0 2 * * *}"
+      GHOST_RUN_ON_STARTUP: "${GHOST_RUN_ON_STARTUP:-true}"
+      GHOST_MAX_LOG_LINES: "${GHOST_MAX_LOG_LINES:-2500}"
+      GHOST_CONTEXT_CHARS: "${GHOST_CONTEXT_CHARS:-24000}"
+      GHOST_LOCAL_API: "${GHOST_LOCAL_API:-http://ollama:11434}"
       # Brain — Graylog API
       GRAYLOG_API_URL: "${GRAYLOG_API_URL:-http://graylog:9000/api}"
       GRAYLOG_ROOT_USERNAME: "${GRAYLOG_ROOT_USERNAME:-admin}"
@@ -282,8 +286,10 @@ services:
       CROWDSEC_API_KEY: "${CROWDSEC_API_KEY:-}"
       # Hands — Uptime-Kuma reachability
       UPTIME_KUMA_URL: "${UPTIME_KUMA_URL:-http://uptime-kuma:3001}"
+      # External Soul — OpenAI / ChatGPT
+      OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
     volumes:
-      - "./The Ghost/Ollama/scripts:/ollama/scripts:ro"
+      - "./The Ghost/Core/scripts:/ghost/scripts:ro"
       - "./The Hands/reports/data:/reports"
       - "./The Hands/backups:/backups:ro"
       - "./The Hands/reports/data/container-vulnerabilities:/evidence/container-vulnerabilities:ro"
@@ -297,7 +303,7 @@ services:
       - vault-logs:/logs/vault:ro
       - greenbone-openvas-log-data:/logs/openvas:ro
       - crowdsec-data:/logs/crowdsec:ro
-    entrypoint: ["python", "/ollama/scripts/analyze_stack.py"]
+    entrypoint: ["python", "/ghost/scripts/analyze_stack.py"]
     networks:
       - secnet
     restart: unless-stopped

@@ -32,7 +32,7 @@ SECSTACK_PROFILES="dns secrets brain" sh scripts/start-stack.sh
 ```
 
 - `all`: Full lab stack
-- `ghost`: The Ghost — LLM reasoning engine governing all pillars (Ollama)
+- `ghost`: The Ghost — LLM reasoning engine governing all pillars (Local/Cloud)
 - `brain`: SIEM and log analysis (Wazuh, Graylog)
 - `network`: Network detection (Suricata, Zeek, Nmap, Wireshark)
 - `ir`: Incident response (TheHive, Shuffle, Velociraptor)
@@ -40,13 +40,13 @@ SECSTACK_PROFILES="dns secrets brain" sh scripts/start-stack.sh
 - `dns`: Local FQDN routing (CoreDNS, Caddy)
 - `secrets`: Secrets storage and rotation (Vault)
 - `ops`: Backups and container vulnerability scanning
-- `llm`: Alias for `ghost` — starts the Ollama engine and assessor only
+- `llm`: Alias for `ghost` — starts the Ghost engine and assessor only
 
 ## Key Endpoints
 
 | Service | Host Endpoint |
 | --- | --- |
-| **The Ghost** (LLM engine) | `The Ghost/Ollama/scripts/analyze_stack.py` |
+| **The Ghost** (LLM engine) | `The Ghost/Core/scripts/analyze_stack.py` |
 | Wazuh rules and FIM | `The Brain/Wazuh/rules/local_rules.xml`, `The Brain/Wazuh/agent/ossec.conf` |
 | PowerShell logging | `The Sword/Windows/powershell/Install-PowerShellLoggingTask.ps1`, `The Sword/Windows/powershell/Collect-PowerShellActivity.ps1` |
 | Sysmon | `The Sword/Windows/sysmon/sysmon-hq-sec.xml` |
