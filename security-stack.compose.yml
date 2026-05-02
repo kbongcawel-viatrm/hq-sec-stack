@@ -692,6 +692,7 @@ services:
       - "${STACK_BIND_IP:-0.0.0.0}:${VELOCIRAPTOR_FRONTEND_PORT:-8000}:8000"
     volumes:
       - velociraptor-data:/velociraptor
+      - "./The Shield/velociraptor:/hq-sec-velociraptor:ro"
     networks:
       - secnet
     restart: unless-stopped
