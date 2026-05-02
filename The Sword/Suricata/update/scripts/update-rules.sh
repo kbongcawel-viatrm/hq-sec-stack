@@ -25,7 +25,7 @@ run_update() {
     }
 
   if [ -f /local-rules/local.rules ]; then
-    cp /local-rules/local.rules /var/lib/The Sword/Suricata/rules/local.rules
+    cp /local-rules/local.rules /var/lib/suricata/rules/local.rules
   fi
 
   log "Suricata rule update complete"
