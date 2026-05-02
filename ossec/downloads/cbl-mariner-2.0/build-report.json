@@ -1,0 +1,20 @@
+{
+  "image": "mcr.microsoft.com/cbl-mariner/base/core:2.0",
+  "layers": [
+    {
+      "digest": "sha256:64bac4cf3f772ec1652faf1137942158e75779717645182293d0516b139edb3d",
+      "path": "D:\\codex-workspace\\downloads\\cbl-mariner-2.0\\layers\\64bac4cf3f772ec1652faf1137942158e75779717645182293d0516b139edb3d.tar.gz",
+      "bytes": 28721536
+    },
+    {
+      "digest": "sha256:4c1817b5ea06b879fa7d3588b19c8b5cb4ddf2245c4a9ad13fc671cdc06726cb",
+      "path": "D:\\codex-workspace\\downloads\\cbl-mariner-2.0\\layers\\4c1817b5ea06b879fa7d3588b19c8b5cb4ddf2245c4a9ad13fc671cdc06726cb.tar.gz",
+      "bytes": 4464
+    }
+  ],
+  "rootfs_tar": "D:\\codex-workspace\\downloads\\cbl-mariner-2.0\\rootfs.tar",
+  "rootfs_bytes": 70184960,
+  "entries": 1908,
+  "wsl_conf": "[user]\ndefault=nobody\n\n[automount]\nenabled=false\nmountFsTab=false\n\n[interop]\nenabled=false\nappendWindowsPath=false\n",
+  "removed_fstab_lines": []
+}
