@@ -54,6 +54,8 @@ until curl -fsS -u "${user}:${pass}" -H "X-Requested-By: hq-sec-stack" "${api}/s
 done
 
 post_input "hq-sec-gelf-udp" "org.graylog2.inputs.gelf.udp.GELFUDPInput" "${GRAYLOG_GELF_UDP_PORT:-12201}"
+post_input "hq-sec-nmap-gelf" "org.graylog2.inputs.gelf.udp.GELFUDPInput" "12202"
+post_input "hq-sec-wireshark-gelf" "org.graylog2.inputs.gelf.udp.GELFUDPInput" "12203"
 post_input "hq-sec-syslog-udp" "org.graylog2.inputs.syslog.udp.SyslogUDPInput" "${GRAYLOG_SYSLOG_INPUT_PORT:-1514}"
 post_input "hq-sec-syslog-tcp" "org.graylog2.inputs.syslog.tcp.SyslogTCPInput" "${GRAYLOG_SYSLOG_INPUT_PORT:-1514}"
 

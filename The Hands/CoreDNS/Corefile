@@ -6,7 +6,9 @@
         ttl 30
         fallthrough
     }
-    forward . 1.1.1.1 9.9.9.9
+    forward . tls://9.9.9.9 tls://149.112.112.112 {
+        tls_servername dns.quad9.net
+    }
     cache 30
     reload
 }
