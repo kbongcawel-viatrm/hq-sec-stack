@@ -14,7 +14,7 @@
 
 ## PowerShell Logging Fallback
 
-The Windows PowerShell scheduled-task collector is a fallback path for cases where the Wazuh/OSSEC agent is removed or disabled. It enables PowerShell script block logging, module logging, transcription, and Windows process creation auditing, then runs every minute as `SYSTEM`.
+The Windows PowerShell scheduled-task collector is a fallback path for cases where the Wazuh/OSSEC agent is removed or disabled. It enables Windows PowerShell and PowerShell Core script block logging, module logging, transcription with invocation headers, and Windows process creation auditing, then runs every minute as `SYSTEM`.
 
 Install it from an elevated PowerShell prompt on the Windows endpoint:
 
@@ -22,7 +22,7 @@ Install it from an elevated PowerShell prompt on the Windows endpoint:
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "The Sword\Windows\powershell\Install-PowerShellLoggingTask.ps1" -GraylogHost "127.0.0.1" -GraylogGelfUdpPort 12201 -WazuhSyslogHost "127.0.0.1" -WazuhSyslogUdpPort 1516
 ```
 
-The scheduled task writes local JSONL evidence under `C:\ProgramData\HQSec\PowerShellLogs`, sends GELF UDP events directly to Graylog, and sends JSON syslog fallback events to Wazuh. Events include the host, event source, process ID, parent process ID when available, owner, command line or script block text, image path, parent image, and suspicious-command flags.
+The scheduled task writes local JSONL evidence under `C:\ProgramData\HQSec\PowerShellLogs`, sends GELF UDP events directly to Graylog, and sends JSON syslog fallback events to Wazuh. Events include the host, event source, process ID, parent process ID when available, owner, command line, script block text, script block ID, script path, module and command names, transcript path, transcript offset, image path, parent image, and suspicious-command flags.
 
 Wazuh fallback detection uses:
 

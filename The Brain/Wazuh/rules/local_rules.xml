@@ -104,8 +104,15 @@
 
   <rule id="100121" level="9">
     <if_sid>100120</if_sid>
-    <field name="source_type" type="pcre2">powershell_eventlog|security_process_creation|sysmon_process_creation</field>
+    <field name="source_type" type="pcre2">powershell_eventlog|powershell_transcript|security_process_creation|sysmon_process_creation</field>
     <description>PowerShell command captured by fallback scheduled-task collector</description>
+    <mitre><id>T1059.001</id></mitre>
+  </rule>
+
+  <rule id="100124" level="8">
+    <if_sid>100120</if_sid>
+    <field name="source_type">powershell_transcript</field>
+    <description>PowerShell transcript content captured by fallback scheduled-task collector</description>
     <mitre><id>T1059.001</id></mitre>
   </rule>
 

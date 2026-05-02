@@ -16,18 +16,25 @@ New-Item -ItemType Directory -Force -Path $StateDirectory | Out-Null
 $scriptPath = Join-Path $OutputDirectory "Collect-PowerShellActivity.ps1"
 Copy-Item -Force -Path "$PSScriptRoot\Collect-PowerShellActivity.ps1" -Destination $scriptPath
 
-New-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging" -Force | Out-Null
-New-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\PowerShell\ModuleLogging" -Force | Out-Null
-New-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\PowerShell\ModuleLogging\ModuleNames" -Force | Out-Null
-New-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\PowerShell\Transcription" -Force | Out-Null
+$policyRoots = @(
+  "HKLM:\SOFTWARE\Policies\Microsoft\Windows\PowerShell",
+  "HKLM:\SOFTWARE\Policies\Microsoft\PowerShellCore"
+)
 
-New-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging" -Name EnableScriptBlockLogging -PropertyType DWord -Value 1 -Force | Out-Null
-New-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging" -Name EnableScriptBlockInvocationLogging -PropertyType DWord -Value 1 -Force | Out-Null
-New-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\PowerShell\ModuleLogging" -Name EnableModuleLogging -PropertyType DWord -Value 1 -Force | Out-Null
-New-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\PowerShell\ModuleLogging\ModuleNames" -Name "*" -PropertyType String -Value "*" -Force | Out-Null
-New-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\PowerShell\Transcription" -Name EnableTranscripting -PropertyType DWord -Value 1 -Force | Out-Null
-New-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\PowerShell\Transcription" -Name EnableInvocationHeader -PropertyType DWord -Value 1 -Force | Out-Null
-Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\PowerShell\Transcription" -Name OutputDirectory -Value $OutputDirectory -Force
+foreach ($policyRoot in $policyRoots) {
+  New-Item -Path "$policyRoot\ScriptBlockLogging" -Force | Out-Null
+  New-Item -Path "$policyRoot\ModuleLogging" -Force | Out-Null
+  New-Item -Path "$policyRoot\ModuleLogging\ModuleNames" -Force | Out-Null
+  New-Item -Path "$policyRoot\Transcription" -Force | Out-Null
+
+  New-ItemProperty -Path "$policyRoot\ScriptBlockLogging" -Name EnableScriptBlockLogging -PropertyType DWord -Value 1 -Force | Out-Null
+  New-ItemProperty -Path "$policyRoot\ScriptBlockLogging" -Name EnableScriptBlockInvocationLogging -PropertyType DWord -Value 1 -Force | Out-Null
+  New-ItemProperty -Path "$policyRoot\ModuleLogging" -Name EnableModuleLogging -PropertyType DWord -Value 1 -Force | Out-Null
+  New-ItemProperty -Path "$policyRoot\ModuleLogging\ModuleNames" -Name "*" -PropertyType String -Value "*" -Force | Out-Null
+  New-ItemProperty -Path "$policyRoot\Transcription" -Name EnableTranscripting -PropertyType DWord -Value 1 -Force | Out-Null
+  New-ItemProperty -Path "$policyRoot\Transcription" -Name EnableInvocationHeader -PropertyType DWord -Value 1 -Force | Out-Null
+  New-ItemProperty -Path "$policyRoot\Transcription" -Name OutputDirectory -PropertyType String -Value $OutputDirectory -Force | Out-Null
+}
 
 New-Item -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System\Audit" -Force | Out-Null
 New-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System\Audit" -Name ProcessCreationIncludeCmdLine_Enabled -PropertyType DWord -Value 1 -Force | Out-Null
