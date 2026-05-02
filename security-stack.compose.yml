@@ -745,8 +745,8 @@ services:
     volumes:
       - crowdsec-data:/var/lib/crowdsec/data
       - crowdsec-config:/etc/crowdsec
-      - "./The Shield/crowdsec/acquis.yaml:/etc/crowdsec/acquis.yaml:ro"
-      - "./The Shield/crowdsec/profiles.yaml:/etc/crowdsec/profiles.yaml:ro"
+      - "./The Sword/crowdsec/acquis.yaml:/etc/crowdsec/acquis.yaml:ro"
+      - "./The Sword/crowdsec/profiles.yaml:/etc/crowdsec/profiles.yaml:ro"
       - wazuh-manager-logs:/var/log/wazuh:ro
       - suricata-logs:/var/log/suricata:ro
       - caddy-logs:/var/log/caddy:ro
