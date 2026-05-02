@@ -1,4 +1,5 @@
-<img width="1920" height="1396" alt="vecteezy_futuristic-polygon-david_16219341" src="https://github.com/user-attachments/assets/8309a77b-b787-4f72-b2d5-82032291b122" />
+<img width="1918" height="724" alt="IMG_0015" src="https://github.com/user-attachments/assets/170ed071-d6de-4dd4-b14e-f11aff66c2cc" />
+
 
 # HQ Security Stack
 
