@@ -8,9 +8,9 @@ While the other pillars collect, detect, protect, and respond, **The Ghost under
 
 ## Services
 
-- `ollama` — Local LLM runtime. Hosts the model (default: `llama3.2`) on the internal `secnet` network.
-- `ollama-model-pull` — One-shot initializer that pulls the configured model on first boot.
-- `ollama-assessor` — The active reasoning engine. Ingests log evidence from all pillars and produces structured security assessments.
+- `ollama` — Local LLM runtime. Hosts local open-weight models on the internal `secnet` network.
+- `ollama-model-pull` — One-shot initializer that pulls the configured local models on first boot.
+- `ghost-assessor` — The active reasoning engine (The Soul). Ingests log evidence from all pillars and produces structured security assessments and directives.
 
 ## Pillar Responsibilities & Governance
 
@@ -21,6 +21,8 @@ The Ghost acts as the soul of the stack, governing the body parts with specific 
 - **The Shield** — Identifies hardening gaps in secrets, vulnerabilities, and endpoint configurations to strengthen the defense.
 - **The Sword** — Directs response actions (IP blocks, containment, IDS rules) to neutralize active issues.
 - **The Hands** — Monitors infrastructure health (DNS, proxy, backups) to ensure the stack remains supported and operational.
+
+## What It Governs
 
 The Ghost reads from every pillar and reasons across all of them:
 
@@ -46,25 +48,6 @@ The Ghost writes two distinct report trees (accessible via **The Hands** dashboa
 - `ghost-directives.md` — Top 5 high-impact cross-pillar directives.
 - `eyes.md`, `brain.md`, `shield.md`, `sword.md`, `hands.md` — Specific, actionable commands and recommendations for each individual pillar.
 
-Each report contains:
-- **Executive Risk** — Overall risk posture (low / medium / high)
-- **Key Evidence** — High-signal events across all log sources
-- **Suspected Attack Patterns** — LLM-inferred threat activity
-- **Hardening Recommendations** — Actionable security improvements
-- **Incident Response Plan** — Step-by-step response guidance
-- **Ansible Playbook Ideas** — Automation suggestions for The Sword
-- **Follow-Up Queries For Graylog** — Queries to drill deeper
-
-## Profile
-
-```bash
-# Start The Ghost only
-docker compose -f security-stack.compose.yml --profile ghost up -d
-
-# Alias
-docker compose -f security-stack.compose.yml --profile llm up -d
-```
-
 ## Swapping the Ghost's Brain (Local vs. Cloud)
 
 The Ghost can inhabit various models depending on your needs. For the ultimate analysis performance, you can use **ChatGPT (GPT-4 Turbo)**. For complete privacy and offline operation, you can use local models via **Ollama**.
@@ -73,7 +56,7 @@ The Ghost can inhabit various models depending on your needs. For the ultimate a
 To use ChatGPT as the Ghost's engine, set your API key and model in `.env`:
 ```bash
 # In .env
-OLLAMA_MODEL=gpt-4-turbo
+GHOST_MODEL=gpt-4-turbo
 OPENAI_API_KEY=sk-your-key-here
 ```
 *The Ghost will automatically detect the 'gpt' prefix and use the OpenAI API.*
@@ -82,19 +65,11 @@ OPENAI_API_KEY=sk-your-key-here
 If no `OPENAI_API_KEY` is provided, or the model name doesn't start with `gpt`, the Ghost uses local Ollama. You can pre-pull multiple local models:
 ```bash
 # Pre-pull local brains
-OLLAMA_MODELS_TO_PULL="llama3.1 gemma2 phi3"
+GHOST_MODELS_TO_PULL="llama3.1 gemma2 phi3"
 
 # Set active local brain
-OLLAMA_MODEL=llama3.1
+GHOST_MODEL=llama3.1
 ```
-
-### Recommended Brains
-| Model | Type | Rationale |
-|---|---|---|
-| **`gpt-4-turbo`** | Cloud | **Gold Standard.** Superior reasoning, context handling, and zero-day detection capabilities. |
-| **`gpt-4o`** | Cloud | Extremely fast and highly intelligent; the modern standard for real-time analysis. |
-| **`llama3.1`** | Local | The strongest local open-weight model for security analysis (8B or 70B). |
-| **`phi3`** | Local | Fast and efficient for quick scans with lower resource usage. |
 
 ## Configuration
 
@@ -102,10 +77,18 @@ Key environment variables (set in `.env`):
 
 | Variable | Default | Description |
 |---|---|---|
-| `OLLAMA_MODEL` | `gpt-4-turbo` | **Universal Selector.** Active model used by the Ghost. Handles local Ollama models OR cloud models (ChatGPT) if `OPENAI_API_KEY` is set and model starts with `gpt-`. |
+| `GHOST_MODEL` | `gpt-4-turbo` | **Universal Selector.** Active model used by the Ghost. Handles local Ollama models OR cloud models (ChatGPT) if `OPENAI_API_KEY` is set and model starts with `gpt-`. |
 | `OPENAI_API_KEY` | - | Required for ChatGPT models. If set, overrides Ollama for `gpt-*` models. |
-| `OLLAMA_MODELS_TO_PULL` | `llama3.2` | Space-separated list of local models to pre-load on startup. |
-| `OLLAMA_ANALYSIS_CRON` | `0 2 * * *` | Schedule for recurring analysis (daily at 02:00 UTC) |
-| `OLLAMA_ANALYSIS_RUN_ON_STARTUP` | `true` | Run an analysis immediately on container start |
-| `OLLAMA_ANALYSIS_MAX_LOG_LINES` | `2500` | Max log lines sampled per analysis run |
-| `OLLAMA_ANALYSIS_CONTEXT_CHARS` | `24000` | Max characters of evidence sent to the LLM |
+| `GHOST_MODELS_TO_PULL` | `llama3.2` | Space-separated list of local models to pre-load on startup. |
+| `GHOST_CRON` | `0 2 * * *` | Schedule for recurring analysis (daily at 02:00 UTC) |
+| `GHOST_RUN_ON_STARTUP` | `true` | Run an analysis immediately on container start |
+| `GHOST_MAX_LOG_LINES` | `2500` | Max log lines sampled per analysis run |
+| `GHOST_CONTEXT_CHARS` | `24000` | Max characters of evidence sent to the LLM |
+| `GHOST_LOCAL_API` | `http://ollama:11434` | Internal URL for the local reasoning engine (e.g. Ollama). |
+
+## Profile
+
+```bash
+# Start The Ghost only
+docker compose -f security-stack.compose.yml --profile ghost up -d
+```

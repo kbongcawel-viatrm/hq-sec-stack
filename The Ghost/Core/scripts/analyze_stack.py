@@ -217,7 +217,7 @@ def fetch_uptime_kuma() -> dict:
 
 # ── Prompt builder ────────────────────────────────────────────────────────────
 def build_prompt(evidence: dict) -> str:
-    limit   = env_int("OLLAMA_ANALYSIS_CONTEXT_CHARS", 24000)
+    limit   = env_int("GHOST_CONTEXT_CHARS", 24000)
     context = json.dumps(evidence, indent=2)[:limit]
     return f"""You are The Ghost — the governing intelligence of the hq-sec-stack security lab.
 You are the soul behind all the body parts. You pull the strings. You make everyone better.
@@ -395,8 +395,9 @@ def write_outputs(markdown: str, evidence: dict, model: str):
 
 # ── Main loop ─────────────────────────────────────────────────────────────────
 def run_once():
-    max_lines = env_int("OLLAMA_ANALYSIS_MAX_LOG_LINES", 2500)
-    model     = _env("OLLAMA_MODEL", "llama3.2")
+    max_lines = env_int("GHOST_MAX_LOG_LINES", 2500)
+    model     = _env("GHOST_MODEL", "llama3.2")
+    openai_key = _env("OPENAI_API_KEY", "")
 
     evidence = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -412,21 +413,43 @@ def run_once():
 
     prompt = build_prompt(evidence)
     try:
-        base = _env("OLLAMA_URL", "http://ollama:11434").rstrip("/")
-        payload = {
-            "model":   model,
-            "prompt":  prompt,
-            "stream":  False,
-            "options": {"temperature": 0.2},
-        }
-        req = urllib.request.Request(
-            f"{base}/api/generate",
-            data=json.dumps(payload).encode(),
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
-        with urllib.request.urlopen(req, timeout=300) as r:
-            markdown = json.loads(r.read().decode()).get("response", "")
+        if openai_key and model.lower().startswith("gpt"):
+            # OpenAI path
+            import json as j
+            payload = {
+                "model": model,
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": 0.2
+            }
+            req = urllib.request.Request(
+                "https://api.openai.com/v1/chat/completions",
+                data=j.dumps(payload).encode(),
+                headers={
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {openai_key}"
+                },
+                method="POST"
+            )
+            with urllib.request.urlopen(req, timeout=300) as r:
+                resp = j.loads(r.read().decode())
+                markdown = resp["choices"][0]["message"]["content"]
+        else:
+            # Local Engine path (e.g. Ollama)
+            base = _env("GHOST_LOCAL_API", "http://ollama:11434").rstrip("/")
+            payload = {
+                "model":   model,
+                "prompt":  prompt,
+                "stream":  False,
+                "options": {"temperature": 0.2},
+            }
+            req = urllib.request.Request(
+                f"{base}/api/generate",
+                data=json.dumps(payload).encode(),
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=300) as r:
+                markdown = json.loads(r.read().decode()).get("response", "")
     except Exception as exc:
         markdown = fallback_assessment(evidence, exc)
 
@@ -455,11 +478,11 @@ def seconds_until_next_cron(cron_expr: str) -> int:
 
 
 def main():
-    if env_bool("OLLAMA_ANALYSIS_RUN_ON_STARTUP", "true"):
+    if env_bool("GHOST_RUN_ON_STARTUP", "true"):
         run_once()
-    if env_bool("OLLAMA_ANALYSIS_ONCE", "false"):
+    if env_bool("GHOST_ONCE", "false"):
         return
-    cron = _env("OLLAMA_ANALYSIS_CRON", "0 2 * * *")
+    cron = _env("GHOST_CRON", "0 2 * * *")
     while True:
         time.sleep(seconds_until_next_cron(cron))
         run_once()
