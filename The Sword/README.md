@@ -2,7 +2,7 @@
 
 Endpoint protection, hardening, IDS rules, and response playbooks.
 
-- `Crowdstrike-Fail2Ban`
+- `CrowdSec`
 - `Suricata`
 - `Ansible`
 - `Windows/powershell`
