@@ -11,87 +11,44 @@ permissions:
   contents: write
 
 jobs:
-  sync-images:
-    name: Pull and Sync Docker Images
+  validate:
+    name: Validate Compose and Scripts
     runs-on: ubuntu-latest
-
+    environment: dev
     env:
-      HARBOR_REGISTRY: demo.goharbor.io
-      BUILD_VERSION: ${{ github.event.inputs.build_version || 'v1' }}
-
+      SECSTACK_PROFILES: ${{ vars.DEV_SECSTACK_PROFILES || 'all' }}
+      DOCKER_BUILDKIT: "1"
+      COMPOSE_DOCKER_CLI_BUILD: "1"
+      BUILDKIT_CACHE_FROM: type=gha
+      BUILDKIT_CACHE_TO: type=gha,mode=max
+      DOCKER_CACHE_PRUNE_BEFORE_PULL: "true"
+      HARBOR_CACHE_HOST: ${{ vars.HARBOR_CACHE_HOST }}
+      HARBOR_CACHE_USERNAME: ${{ secrets.HARBOR_CACHE_USERNAME }}
+      HARBOR_CACHE_PASSWORD: ${{ secrets.HARBOR_CACHE_PASSWORD }}
+      HARBOR_CACHE_PROJECT_DOCKERIO: ${{ vars.HARBOR_CACHE_PROJECT_DOCKERIO }}
+      HARBOR_CACHE_PROJECT_DOCKERHUB: ${{ vars.HARBOR_CACHE_PROJECT_DOCKERHUB }}
+      HARBOR_CACHE_PROJECT_GHCR: ${{ vars.HARBOR_CACHE_PROJECT_GHCR }}
+      HARBOR_CACHE_PROJECT_GREENBONE: ${{ vars.HARBOR_CACHE_PROJECT_GREENBONE }}
+      HARBOR_CACHE_PROJECT_DEFAULT: ${{ vars.HARBOR_CACHE_PROJECT_DEFAULT }}
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Login to Harbor
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.HARBOR_REGISTRY }}
-          username: ${{ vars.HARBORUSER }}
-          password: ${{ secrets.HARBORPW }}
-
-      - name: Install yq
+      - name: Validate compose configuration
         run: |
-          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
-          sudo chmod +x /usr/local/bin/yq
+          set -eu
+          set --
+          for profile in ${SECSTACK_PROFILES}; do
+            set -- "$@" --profile "$profile"
+          done
+          docker compose -f security-stack.compose.yml "$@" config
 
-      - name: Pull all images from Docker Compose
+      - name: Warm registry cache and pull images
         run: |
-          set -euo pipefail
-
-          COMPOSE_FILE="security-stack.compose.yml"
-
-          if [ ! -f "$COMPOSE_FILE" ]; then
-            echo "Missing $COMPOSE_FILE"
-            exit 1
-          fi
-
-          yq -r '.services[].image // empty' "$COMPOSE_FILE" | sort -u > images.txt
-
-          if [ ! -s images.txt ]; then
-            echo "No images found in $COMPOSE_FILE"
-            exit 1
-          fi
-
-          echo "Images to pull:"
-          cat images.txt
-
-          while read -r IMAGE; do
-            echo "Pulling $IMAGE"
-            docker pull "$IMAGE"
-          done < images.txt
-
-      - name: Verify all images were pulled successfully
-        run: |
-          set -euo pipefail
-
-          while read -r IMAGE; do
-            echo "Verifying $IMAGE"
-            docker image inspect "$IMAGE" > /dev/null
-          done < images.txt
-
-      - name: Commit synced image metadata
-        run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-
-          git add images.txt
-
-          if git diff --cached --quiet; then
-            echo "No metadata changes"
-          else
-            git commit -m "chore: sync docker images to Harbor [${BUILD_VERSION}]"
-            git push
-          fi
-
+          python3 scripts/python/prewarm-registry-cache.py --compose-file security-stack.compose.yml --profiles "${SECSTACK_PROFILES} monitor" --targets-file "The Shield/scanner/targets.txt"
       - name: Create success tag
         run: |
-          TAG_NAME="stable-image-tag-${BUILD_VERSION}-$(date -u +'%Y%m%d%H%M%S')"
+          TAG_NAME="stable-image-tag-$(date -u +'%Y%m%d%H%M%S')"
 
           git tag "$TAG_NAME"
           git push origin "$TAG_NAME"
