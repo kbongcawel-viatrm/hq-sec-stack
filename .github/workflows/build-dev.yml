@@ -8,10 +8,6 @@ on:
         required: false
         default: ""
         type: string
-  push:
-    branches:
-      - dev
-      - develop
 
 permissions:
   contents: read
