@@ -1,7 +1,7 @@
 from pathlib import Path
 import py_compile
 
-script_path = Path("/mnt/data/prewarm-registry-cache-final.edited.py")
+script_path = Path("/mnt/data/prewarm-registry-cache-final.py")
 script = script_path.read_text(encoding="utf-8")
 
 # Add gzip/shutil imports back
