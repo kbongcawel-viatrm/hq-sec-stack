@@ -895,7 +895,7 @@ services:
   ############################################################
 
   osquery:
-    image: osquery/osquery:${OSQUERY_VERSION:-5.22.1}
+    image: osquery/osquery:${OSQUERY_VERSION:-5.8.2-ubuntu22.04}
     container_name: osquery
     profiles: ["vuln", "all"]
     user: "${SECSTACK_UID:-1000}:${SECSTACK_GID:-1000}"

@@ -23,7 +23,7 @@ ghcr.io/shuffle/shuffle-orborus:latest
 ghcr.io/shuffle/shuffle-worker:latest
 xboarder56/velociraptor:0.74.2
 cytopia/ansible:2.16-tools
-osquery/osquery:5.22.1
+osquery/osquery:5.8.2-ubuntu22.04
 registry.community.greenbone.net/community/vulnerability-tests:latest
 registry.community.greenbone.net/community/notus-data:latest
 registry.community.greenbone.net/community/scap-data:latest
