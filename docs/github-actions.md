@@ -14,6 +14,9 @@ Create these in `Settings -> Secrets and variables -> Actions -> Secrets`.
 | `DEPLOY_PATH` | Absolute path to the checkout on the remote host. |
 | `CADDY_CROWDSEC_API_KEY` | CrowdSec bouncer key injected into the Caddy container at deploy time. |
 
+The workflow copies `.env.example` to `.env` and then injects `CADDY_CROWDSEC_API_KEY` from GitHub Secrets before running Compose.
+Keep the example file free of GitHub expression syntax such as `${{ secrets.* }}` because Docker Compose reads `.env` as a plain environment file.
+
 ## Required Repository Variables
 
 Create these in `Settings -> Secrets and variables -> Actions -> Variables`.
