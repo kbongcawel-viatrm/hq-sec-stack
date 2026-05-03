@@ -2,6 +2,7 @@
 
 | Commit Message | Branch | Hash | Date |
 | --- | --- | --- | --- |
+| Use repo scanner Dockerfiles | dev | 8434c54 | 2026-05-03 |
 | Consolidate network scanner image | dev | ff65c40 | 2026-05-03 |
 | Reduce prewarm failures | dev | de9f733 | 2026-05-03 |
 | Add Harbor project mappings | dev | 341597f | 2026-05-03 |
