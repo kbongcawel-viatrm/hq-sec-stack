@@ -1,12 +1,13 @@
-name: Build Dev Docker Artifacts
+name: Build HQ Security Stack (Development)
 
 on:
   workflow_dispatch:
     inputs:
-      artifact_tag:
-        description: "Artifact tag suffix, for example dev-v1.0"
+      profiles:
+        description: "Optional compose profiles"
         required: false
-        default: "dev-v1.0"
+        default: ""
+        type: string
   push:
     branches:
       - dev
@@ -17,66 +18,45 @@ permissions:
 
 env:
   COMPOSE_FILE: security-stack.compose.yml
-  CACHE_TARGETS_FILE: The Shield/scanner/targets.txt
-  DOCKER_ARTIFACT_DIR: artifact
-  DOCKER_CACHE_PRUNE_BEFORE_PULL: "true"
-  DOCKER_CACHE_PRUNE_AFTER_PULL: "true"
-  DOCKER_CACHE_PRUNE_AFTER_EACH_IMAGE: "false"
-  DOCKER_CACHE_FORCE_PULL: "true"
-  DOCKER_CACHE_IGNORE_FAILURES: "false"
-  HARBOR_CACHE_FALLBACK_TO_ORIGIN: "true"
 
 jobs:
-  build-dev-artifacts:
-    name: Build dev image artifacts
+  validate:
+    name: Build development stack
     runs-on: ubuntu-latest
+    environment: dev
     timeout-minutes: 120
+
+    env:
+      SECSTACK_PROFILES: ${{ inputs.profiles || vars.DEV_SECSTACK_PROFILES || 'all' }}
+      DOCKER_BUILDKIT: "1"
+      COMPOSE_DOCKER_CLI_BUILD: "1"
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set artifact tag
+      - name: Create environment file
         shell: bash
         run: |
-          ARTIFACT_TAG="${{ github.event.inputs.artifact_tag }}"
-          if [ -z "$ARTIFACT_TAG" ]; then
-            ARTIFACT_TAG="dev-${GITHUB_RUN_NUMBER}"
-          fi
-          echo "DOCKER_ARTIFACT_TAG=$ARTIFACT_TAG" >> "$GITHUB_ENV"
+          cp .env.example .env
 
-      - name: Login to Harbor cache
-        if: ${{ secrets.HARBOR_CACHE_HOST != '' && secrets.HARBOR_CACHE_USERNAME != '' && secrets.HARBOR_CACHE_PASSWORD != '' }}
+      - name: Validate compose configuration
         shell: bash
         run: |
-          echo "${{ secrets.HARBOR_CACHE_PASSWORD }}" | docker login "${{ secrets.HARBOR_CACHE_HOST }}" \
-            -u "${{ secrets.HARBOR_CACHE_USERNAME }}" \
-            --password-stdin
+          set -eu
+          set --
+          for profile in ${SECSTACK_PROFILES} monitor; do
+            set -- "$@" --profile "$profile"
+          done
+          docker compose --env-file .env -f "$COMPOSE_FILE" "$@" config
 
-      - name: Prewarm registry cache and create artifacts
+      - name: Docker compose build
         shell: bash
-        env:
-          SECSTACK_PROFILES: ${{ vars.SECSTACK_PROFILES || 'all' }}
-          HARBOR_CACHE_HOST: ${{ secrets.HARBOR_CACHE_HOST }}
-          HARBOR_CACHE_USERNAME: ${{ secrets.HARBOR_CACHE_USERNAME }}
-          HARBOR_CACHE_PASSWORD: ${{ secrets.HARBOR_CACHE_PASSWORD }}
-          HARBOR_CACHE_PROJECT_DOCKERIO: ${{ vars.HARBOR_CACHE_PROJECT_DOCKERIO }}
-          HARBOR_CACHE_PROJECT_DOCKERHUB: ${{ vars.HARBOR_CACHE_PROJECT_DOCKERHUB }}
-          HARBOR_CACHE_PROJECT_GHCR: ${{ vars.HARBOR_CACHE_PROJECT_GHCR }}
-          HARBOR_CACHE_PROJECT_GREENBONE: ${{ vars.HARBOR_CACHE_PROJECT_GREENBONE }}
-          HARBOR_CACHE_PROJECT_DEFAULT: ${{ vars.HARBOR_CACHE_PROJECT_DEFAULT }}
         run: |
-          python3 scripts/prewarm-registry-cache-final.py \
-            --artifact-tag "$DOCKER_ARTIFACT_TAG" \
-            --artifact-dir "$DOCKER_ARTIFACT_DIR" \
-            --compose-file "$COMPOSE_FILE" \
-            --profiles "${SECSTACK_PROFILES} monitor" \
-            --targets-file "$CACHE_TARGETS_FILE"
-
-      - name: Upload dev artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: docker-image-artifacts-dev-${{ github.run_number }}
-          path: artifact/*.tar.gz
-          if-no-files-found: error
-          retention-days: 14
+          set -eu
+          set --
+          for profile in ${SECSTACK_PROFILES} monitor; do
+            set -- "$@" --profile "$profile"
+          done
+          docker compose --env-file .env -f "$COMPOSE_FILE" "$@" config
+          docker compose --env-file .env -f "$COMPOSE_FILE" "$@" build --pull never
