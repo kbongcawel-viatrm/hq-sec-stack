@@ -59,9 +59,29 @@ jobs:
           bash -n "The Shield/vault/scripts/monthly-rotate.sh"
 
       - name: Pull critical profile images
-        run: docker compose -f security-stack.compose.yml --profile dns --profile secrets --profile brain pull --ignore-buildable
+        id: pull_images
+        run: |
+          set +e
+          pull_log="$(mktemp)"
+          docker compose -f security-stack.compose.yml --profile dns --profile secrets --profile brain pull --ignore-buildable --ignore-pull-failures 2>&1 | tee "$pull_log"
+          if grep -Eqi '(pull access denied|manifest unknown|not found|denied)' "$pull_log"; then
+            {
+              echo "missing_repo=true"
+              echo "pull_log=$pull_log"
+            } >> "$GITHUB_OUTPUT"
+          else
+            echo "missing_repo=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Report missing image repositories
+        if: steps.pull_images.outputs.missing_repo == 'true'
+        run: |
+          echo "One or more image repositories were denied or missing during pull."
+          echo "Review the Pull critical profile images step for the failing image names."
+          exit 1
 
       - name: Start compose stack for monitor validation
+        if: steps.pull_images.outputs.missing_repo != 'true'
         run: |
           set -eu
           set --
@@ -71,5 +91,6 @@ jobs:
           docker compose -f security-stack.compose.yml "$@" up -d --build --remove-orphans
 
       - name: Validate Uptime Kuma targets
+        if: steps.pull_images.outputs.missing_repo != 'true'
         run: |
           docker compose -f security-stack.compose.yml --profile monitor run --rm --no-deps --entrypoint python uptime-kuma-sync /uptime-kuma/scripts/validate-monitors.py
