@@ -453,7 +453,7 @@ services:
   ############################################################
 
   wazuh-indexer:
-    image: wazuh/wazuh-indexer:${WAZUH_VERSION:-4.14.5}
+    image: wazuh/wazuh-indexer:${WAZUH_VERSION:-4.14.4}
     container_name: wazuh-indexer
     profiles: ["brain", "all"]
     environment:
@@ -480,7 +480,7 @@ services:
     logging: *graylog-logging
 
   wazuh-manager:
-    image: wazuh/wazuh-manager:${WAZUH_VERSION:-4.14.5}
+    image: wazuh/wazuh-manager:${WAZUH_VERSION:-4.14.4}
     container_name: wazuh-manager
     hostname: wazuh-manager
     profiles: ["brain", "all"]
@@ -512,7 +512,7 @@ services:
     logging: *graylog-logging
 
   wazuh-dashboard:
-    image: wazuh/wazuh-dashboard:${WAZUH_VERSION:-4.14.5}
+    image: wazuh/wazuh-dashboard:${WAZUH_VERSION:-4.14.4}
     container_name: wazuh-dashboard
     profiles: ["brain", "all"]
     environment:
@@ -538,7 +538,7 @@ services:
     logging: *graylog-logging
 
   graylog-mongo:
-    image: mongo:${MONGO_VERSION:-7.0}
+    image: mongo:${MONGO_VERSION:-7.0.29}
     container_name: graylog-mongo
     profiles: ["brain", "all"]
     volumes:
@@ -691,7 +691,7 @@ services:
   ############################################################
 
   thehive:
-    image: strangebee/thehive:${THEHIVE_VERSION:-5}
+    image: strangebee/thehive:${THEHIVE_VERSION:-5.7}
     container_name: thehive
     profiles: ["ir", "all"]
     environment:
@@ -815,7 +815,7 @@ services:
       SHUFFLE_LOGS_DISABLED: "true"
       SHUFFLE_SWARM_CONFIG: "run"
       CLEANUP: "false"
-      SHUFFLE_WORKER_IMAGE: "ghcr.io/shuffle/shuffle-worker:${SHUFFLE_VERSION:-latest}"
+      SHUFFLE_WORKER_IMAGE: "ghcr.io/shuffle/shuffle-worker:${SHUFFLE_WORKER_VERSION:-nightly}"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     networks:
@@ -1012,7 +1012,7 @@ services:
     logging: *graylog-logging
 
   redis-server:
-    image: registry.community.greenbone.net/community/redis-server:${GREENBONE_IMAGE_TAG:-latest}
+    image: greenbone/redis-server:${GREENBONE_REDIS_TAG:-latest}
     container_name: redis-server
     profiles: ["vuln", "all"]
     restart: unless-stopped

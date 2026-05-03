@@ -114,6 +114,17 @@ def load_images(compose_file: str, profiles: list[str], targets_file: str | None
     return images
 
 
+def should_skip_image(image: str) -> bool:
+    ref = image.strip()
+    if not ref:
+        return True
+    if ref == "caddy:builder-alpine" or ref.endswith(":builder-alpine"):
+        return True
+    if ref.startswith("hq-sec/") or ref.startswith("hq-sec-stack-"):
+        return True
+    return False
+
+
 def login_harbor_if_needed() -> None:
     harbor_host = os.environ.get("HARBOR_CACHE_HOST", "").strip().rstrip("/")
     harbor_user = os.environ.get("HARBOR_CACHE_USERNAME", "").strip()
@@ -159,6 +170,9 @@ def main() -> int:
 
     failures: list[str] = []
     for image in images:
+        if should_skip_image(image):
+            print(f"Skipping non-pull image {image}")
+            continue
         if not pull_and_tag(image):
             failures.append(image)
 

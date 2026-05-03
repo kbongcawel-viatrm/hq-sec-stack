@@ -4,12 +4,13 @@ This stack can warm Docker images through Harbor proxy cache projects before it 
 
 ## What It Does
 
-The helper script at [`scripts/prewarm-registry-cache.py`](../scripts/prewarm-registry-cache.py) does three things:
+The helper script at [`scripts/prewarm-registry-cache.py`](../scripts/prewarm-registry-cache.py) does five things:
 
 1. Optionally prunes unused Docker images and builder cache.
 2. Prunes unused Docker system resources before warmup when `DOCKER_CACHE_PRUNE_BEFORE_PULL=true`.
 3. Pulls the images referenced by `security-stack.compose.yml` plus `The Shield/scanner/targets.txt`.
 4. Pulls through Harbor proxy cache projects when Harbor cache variables are configured, then retags the image locally under the original name.
+5. Skips local build outputs and builder-stage images such as `hq-sec/caddy-crowdsec`, `hq-sec-stack-nmap-scanner`, `hq-sec-stack-wireshark-scanner`, and `caddy:builder-alpine`.
 
 The workflows and `scripts/start-stack.sh` use `--pull never` after prewarming so Docker does not go back to the upstream registries during startup. BuildKit is enabled with `DOCKER_BUILDKIT=1` and `COMPOSE_DOCKER_CLI_BUILD=1` so `cache-from` and `cache-to` are actually consumed by Compose builds.
 
@@ -33,7 +34,7 @@ Use these upstream registry URLs when you create the Harbor `Registries -> New E
 | GitHub Container Registry | `https://ghcr.io` |
 | Greenbone Community Registry | `https://registry.community.greenbone.net` |
 
-The cache helper maps `docker.io` image references to `HARBOR_CACHE_PROJECT_DOCKERIO` first, then `HARBOR_CACHE_PROJECT_DOCKERHUB`, `ghcr.io` to the GHCR proxy project, and `registry.community.greenbone.net` to the Greenbone proxy project.
+The cache helper maps `docker.io` image references to `HARBOR_CACHE_PROJECT_DOCKERIO` first, then `HARBOR_CACHE_PROJECT_DOCKERHUB`, `ghcr.io` to the GHCR proxy project, and `registry.community.greenbone.net` to the Greenbone proxy project. The Greenbone Redis service now pulls from the Docker Hub mirror `greenbone/redis-server:latest` to avoid the community registry pull path during warmup.
 
 ## Required Environment Variables
 
