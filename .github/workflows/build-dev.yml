@@ -34,7 +34,7 @@ jobs:
       - name: Show downloaded artifacts
         run: |
           echo "Artifacts:"
-          find /${{ runner.temp }}/artifacts -type f -name "*.tar.gz" -print
+          find ${{ runner.temp }}/artifacts -type f -name "*.tar.gz" -print
 
       # -------------------------------
       # Load Docker images
