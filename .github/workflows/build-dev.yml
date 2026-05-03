@@ -16,7 +16,7 @@ jobs:
   validate:
     name: Validate Compose and Sync Images
     runs-on: ubuntu-latest
-    environment: dev
+    environment: development
 
     env:
       SECSTACK_PROFILES: ${{ vars.DEV_SECSTACK_PROFILES || 'all' }}
