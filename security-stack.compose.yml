@@ -62,6 +62,7 @@ services:
       CADDY_CROWDSEC_API_KEY: "${CADDY_CROWDSEC_API_KEY}"
     ports:
       - "${FQDN_HTTP_HOST_IP:-127.0.0.1}:${FQDN_HTTP_PORT:-80}:80"
+      - "${FQDN_HTTPS_HOST_IP:-127.0.0.1}:${FQDN_HTTPS_PORT:-443}:443"
     volumes:
       - "./The Hands/FQDN proxy - Caddy/Caddyfile:/etc/caddy/Caddyfile:ro"
       - fqdn-proxy-data:/data

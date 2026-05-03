@@ -7,7 +7,7 @@ This stack is a Linux Docker Engine lab for SOC telemetry, incident response, an
 | Profile | Services | Host endpoints |
 | --- | --- | --- |
 | `brain` | Wazuh, Graylog, MongoDB, Graylog Data Node | Wazuh dashboard `https://localhost:5601`, Wazuh API `https://localhost:55000`, Graylog `http://localhost:9000`, GELF UDP `12201`, syslog TCP/UDP `5514` |
-| `dns` | CoreDNS, Caddy FQDN proxy | DNS `127.0.0.1:1053`, FQDN HTTP proxy `10.77.0.80:80` |
+| `dns` | CoreDNS, Caddy FQDN proxy | DNS `127.0.0.1:1053`, FQDN HTTP proxy `10.77.0.80:80`, FQDN HTTPS proxy `10.77.0.80:443` |
 | `secrets` | Vault and monthly secret rotator | Vault `http://localhost:8200`, `vault.hq-sec.local` |
 | `ops` | Backup and vulnerability observation | Volume archives in `./The Hands/backups`, Trivy reports in `./The Hands/reports/data/container-vulnerabilities` |
 | `monitor` | Uptime monitoring | Uptime Kuma `http://localhost:3002`, `uptime.hq-sec.local`; desired monitors in `The Eyes/Uptime-Kuma/monitors.yml` |
@@ -20,7 +20,7 @@ This stack is a Linux Docker Engine lab for SOC telemetry, incident response, an
 
 Endpoint telemetry enters Wazuh through `wazuh-manager:1514/udp` for events and `1515/tcp` for enrollment. The Wazuh manager publishes analysis into `wazuh-indexer:9200`, and `wazuh-dashboard` reads from the indexer and Wazuh API.
 
-Human-facing FQDNs resolve through `secdns` to `fqdn-proxy` at `10.77.0.80`. Caddy routes `wazuh.hq-sec.local`, `graylog.hq-sec.local`, `thehive.hq-sec.local`, `shuffle.hq-sec.local`, `velociraptor.hq-sec.local`, and `greenbone.hq-sec.local` to their internal Docker service names.
+Human-facing FQDNs resolve through `secdns` to `fqdn-proxy` at `10.77.0.80`. Caddy serves the `*.hq-sec.local` names with its internal CA on HTTPS while leaving the door open for public ACME certificates on any future external hostnames. It routes `wazuh.hq-sec.local`, `graylog.hq-sec.local`, `thehive.hq-sec.local`, `shuffle.hq-sec.local`, `velociraptor.hq-sec.local`, and `greenbone.hq-sec.local` to their internal Docker service names.
 
 Secrets are stored in Vault under the `secret/hq-sec-stack/*` KV namespace. `vault-rotator` checks monthly and writes fresh generated values for service secrets. Static service configuration still needs an operator-controlled apply/restart workflow because several applications require service-specific password formats or startup-time environment variables.
 
@@ -95,7 +95,7 @@ Check local FQDN DNS:
 
 ```bash
 dig @127.0.0.1 -p 1053 graylog.hq-sec.local
-curl http://graylog.hq-sec.local
+curl -k https://graylog.hq-sec.local
 ```
 
 

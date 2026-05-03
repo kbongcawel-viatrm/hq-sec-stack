@@ -1,7 +1,6 @@
 {
     admin off
-    auto_https off
-    
+
     # Send all access logs to a single JSON file for Crowdsec
     log default {
         output file /var/log/caddy/access.log
@@ -20,6 +19,7 @@
 }
 
 wazuh.hq-sec.local {
+    tls internal
     reverse_proxy https://wazuh-dashboard:5601 {
         transport http {
             tls_insecure_skip_verify
@@ -28,6 +28,7 @@ wazuh.hq-sec.local {
 }
 
 wazuh-api.hq-sec.local {
+    tls internal
     reverse_proxy https://wazuh-manager:55000 {
         transport http {
             tls_insecure_skip_verify
@@ -36,6 +37,7 @@ wazuh-api.hq-sec.local {
 }
 
 wazuh-indexer.hq-sec.local {
+    tls internal
     reverse_proxy https://wazuh-indexer:9200 {
         transport http {
             tls_insecure_skip_verify
@@ -44,26 +46,32 @@ wazuh-indexer.hq-sec.local {
 }
 
 graylog.hq-sec.local {
+    tls internal
     reverse_proxy http://graylog:9000
 }
 
 thehive.hq-sec.local {
+    tls internal
     reverse_proxy http://thehive:9000
 }
 
 shuffle.hq-sec.local {
+    tls internal
     reverse_proxy http://shuffle:3001
 }
 
 shuffle-api.hq-sec.local {
+    tls internal
     reverse_proxy http://shuffle:5001
 }
 
 velociraptor.hq-sec.local {
+    tls internal
     reverse_proxy http://velociraptor:8889
 }
 
 greenbone.hq-sec.local {
+    tls internal
     reverse_proxy https://greenbone-nginx:443 {
         transport http {
             tls_insecure_skip_verify
@@ -72,17 +80,21 @@ greenbone.hq-sec.local {
 }
 
 vault.hq-sec.local {
+    tls internal
     reverse_proxy http://vault:8200
 }
 
 reports.hq-sec.local {
+    tls internal
     reverse_proxy http://report-dashboard:80
 }
 
 uptime.hq-sec.local {
+    tls internal
     reverse_proxy http://uptime-kuma:3001
 }
 
 ghost.hq-sec.local {
+    tls internal
     reverse_proxy http://ghost:11434
 }
