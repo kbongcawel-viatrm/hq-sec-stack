@@ -366,7 +366,21 @@ def main() -> int:
 
     profiles = [profile for profile in args.profiles.split() if profile]
     targets_file = args.targets_file if Path(args.targets_file).exists() else None
-    images = load_images(args.compose_file, profiles, targets_file)
+
+    if targets_file:
+        images = []
+        seen: set[str] = set()
+
+        for raw_line in Path(targets_file).read_text(encoding="utf-8").splitlines():
+            line = raw_line.strip()
+            if not line or line.startswith("#"):
+                continue
+
+            if line not in seen:
+                images.append(line)
+                seen.add(line)
+    else:
+        images = load_images(args.compose_file, profiles, None)
 
     failures: list[str] = []
     artifact_paths: list[Path] = []
