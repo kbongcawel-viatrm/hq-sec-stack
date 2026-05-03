@@ -1,8 +1,13 @@
 name: Build Security Stack (dev)
 
 on:
-  push:
-    branches: ["dev"]
+  workflow_dispatch:
+    inputs:
+      profiles:
+        description: "Optional compose profiles to validate and deploy"
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: read
@@ -41,7 +46,7 @@ jobs:
             echo "Integrating stable image metadata from Harbor"
             cat stable-images.env >> .env
           fi
-          
+
           tmp_env="$(mktemp)"
           while IFS= read -r line; do
             case "$line" in
