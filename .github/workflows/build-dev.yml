@@ -51,7 +51,18 @@ jobs:
           echo "${HARBOR_CACHE_PASSWORD}" | docker login "${HARBOR_CACHE_HOST}" \
             -u "${HARBOR_CACHE_USERNAME}" \
             --password-stdin
-       
+      
+      - name: Prepare and start stack
+        run: |
+          cp .env.example .env 
+      
+      - name: Login to Harbor
+        if: env.HARBOR_CACHE_HOST != '' && env.HARBOR_CACHE_USERNAME != '' && env.HARBOR_CACHE_PASSWORD != ''
+        run: |
+          echo "${HARBOR_CACHE_PASSWORD}" | docker login "${HARBOR_CACHE_HOST}" \
+            -u "${HARBOR_CACHE_USERNAME}" \
+            --password-stdin
+            
       - name: Validate compose configuration
         shell: bash
         run: |
@@ -61,7 +72,16 @@ jobs:
             set -- "$@" --profile "$profile"
           done
           docker compose --env-file .env -f "$COMPOSE_FILE" "$@" config
-     
+      
+      - name: Validate shell scripts
+        run: |
+          bash -n scripts/start-stack.sh
+          bash -n scripts/killswitch.sh
+          bash -n "The Hands/backup/scripts/backup-volumes.sh"
+          bash -n "The Hands/backup/scripts/restore-volume.sh"
+          bash -n "The Shield/scanner/scripts/scan-containers.sh"
+          bash -n "The Shield/vault/scripts/monthly-rotate.sh"
+          
       - name: Pull artifacts
         uses: actions/download-artifact@v4
         with:
@@ -83,18 +103,20 @@ jobs:
           
       - name: Prepare and start stack
         run: |
-          cp .env.example .env
           sh scripts/start-stack.sh
-  
-     # - name: Docker compose build from loaded artifacts
-     #   shell: bash
-     #   run: |
-     #     set -eu
-     #     set --
-     #     for profile in ${SECSTACK_PROFILES}; do
-     #       set -- "$@" --profile "$profile"
-     #     done
-     #     docker compose --env-file .env -f "$COMPOSE_FILE" "$@" config
-     #     docker compose --env-file .env -f "$COMPOSE_FILE" "$@" build --pull never
+          
+      - name: Start compose stack for monitor validation
+        run: |
+          set -eu
+          set --
+          for profile in ${SECSTACK_PROFILES} monitor; do
+            set -- "$@" --profile "$profile"
+          done
+          docker compose --env-file .env -f security-stack.compose.yml "$@" up -d --build --pull never --remove-orphans
+
+      - name: Validate Uptime Kuma targets
+        run: |
+         docker compose --env-file .env -f security-stack.compose.yml --profile monitor run --rm --no-deps --entrypoint python uptime-kuma-sync /uptime-kuma/scripts/validate-monitors.py
+
      
       
