@@ -23,6 +23,18 @@ Harbor proxy cache is configured per upstream registry. For this repository, the
 
 You will need Harbor admin or project-admin access to create the proxy cache projects and registry endpoints. I also need the project names you want to use, or admin credentials if you want me to wire the exact settings in the repo.
 
+### Suggested Upstream Endpoints
+
+Use these upstream registry URLs when you create the Harbor `Registries -> New Endpoint` entries:
+
+| Registry | Endpoint URL |
+| --- | --- |
+| Docker Hub | `https://registry-1.docker.io` |
+| GitHub Container Registry | `https://ghcr.io` |
+| Greenbone Community Registry | `https://registry.community.greenbone.net` |
+
+The cache helper maps `docker.io` image references to the Docker Hub proxy project, `ghcr.io` to the GHCR proxy project, and `registry.community.greenbone.net` to the Greenbone proxy project.
+
 ## Required Environment Variables
 
 Set these in `.env` or in GitHub Actions variables/secrets as appropriate:
