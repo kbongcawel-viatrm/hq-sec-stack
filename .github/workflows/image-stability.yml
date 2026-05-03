@@ -2,7 +2,7 @@ name: Image Stability and Availability
 
 on:
   push:
-    branches: ["main"]
+    branches: ["dev"]
   schedule:
     - cron: '0 2 * * *' # Run daily at 02:00 UTC
   workflow_dispatch:
