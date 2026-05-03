@@ -60,3 +60,16 @@ jobs:
 
       - name: Pull critical profile images
         run: docker compose -f security-stack.compose.yml --profile dns --profile secrets --profile brain pull --ignore-buildable
+
+      - name: Start compose stack for monitor validation
+        run: |
+          set -eu
+          set --
+          for profile in ${SECSTACK_PROFILES} monitor; do
+            set -- "$@" --profile "$profile"
+          done
+          docker compose -f security-stack.compose.yml "$@" up -d --build --remove-orphans
+
+      - name: Validate Uptime Kuma targets
+        run: |
+          docker compose -f security-stack.compose.yml --profile monitor run --rm --no-deps --entrypoint python uptime-kuma-sync /uptime-kuma/scripts/validate-monitors.py

@@ -3,6 +3,7 @@
 This repository uses `.github/workflows/build-deploy.yml` for validation and manual deployment.
 Pushes to `dev` use `.github/workflows/build-dev.yml` to run the same validation pipeline without the deploy job.
 The dev workflow uses the GitHub Actions environment `dev`; the main deploy job uses `prod`.
+The dev workflow also starts the compose stack and validates the Uptime Kuma target inventory against the internal Docker endpoints defined in `The Eyes/Uptime-Kuma/monitors.yml`.
 
 ## Required Repository Secrets
 
