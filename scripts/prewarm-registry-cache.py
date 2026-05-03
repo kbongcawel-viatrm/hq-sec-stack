@@ -1,17 +1,21 @@
 #!/usr/bin/env python3
 """Prewarm Docker image caches, optionally through Harbor proxy cache projects.
 
-Space optimizations included:
-- Optionally prune Docker image/build cache before pulls.
-- Skip images that already exist locally, unless forced.
-- Remove temporary Harbor proxy-cache tags after retagging to the original image name.
-- Optionally prune dangling images/build cache after pulls.
+This script is optimized for low disk usage in CI runners:
+- Pulls images through Harbor proxy cache when configured.
+- Does not retag Harbor images as original image refs.
+- Removes each pulled image immediately after validation/cache warming.
+- Cleans dangling images/build cache after each image when enabled.
+- Continues when an image is missing or broken.
+- Lists all broken/unavailable images at the end.
 
 Environment variables:
 - DOCKER_CACHE_PRUNE_BEFORE_PULL=true
 - DOCKER_CACHE_PRUNE_AFTER_PULL=true
+- DOCKER_CACHE_PRUNE_AFTER_EACH_IMAGE=true
 - DOCKER_CACHE_FORCE_PULL=true
-- HARBOR_CACHE_KEEP_PROXY_TAG=true
+- DOCKER_CACHE_IGNORE_FAILURES=true
+- HARBOR_CACHE_FALLBACK_TO_ORIGIN=true
 """
 
 from __future__ import annotations
@@ -42,7 +46,7 @@ def run_command_with_retry(
     cmd: list[str],
     *,
     input_text: str | None = None,
-    attempts: int = 3,
+    attempts: int = 2,
     delay_seconds: int = 5,
 ) -> int:
     last_code = 0
@@ -81,6 +85,21 @@ def prune_docker_space_after_pull() -> None:
     run_command(["docker", "builder", "prune", "-af"])
 
 
+def cleanup_after_image() -> None:
+    if not truthy(os.environ.get("DOCKER_CACHE_PRUNE_AFTER_EACH_IMAGE"), default=True):
+        return
+
+    print("Cleaning dangling Docker images and build cache after image")
+    run_command(["docker", "image", "prune", "-f"])
+    run_command(["docker", "builder", "prune", "-af"])
+
+
+def cleanup_image_ref(image: str) -> None:
+    if not image.strip():
+        return
+    run_command(["docker", "rmi", "-f", image])
+
+
 def image_exists(image: str) -> bool:
     return run_command(["docker", "image", "inspect", image]) == 0
 
@@ -114,7 +133,7 @@ def harbor_pull_ref(image: str) -> str | None:
     if not harbor_host:
         return None
 
-    registry, path, tag, _digest = split_image_ref(image)
+    registry, path, tag, digest = split_image_ref(image)
     project_map = {
         "docker.io": os.environ.get("HARBOR_CACHE_PROJECT_DOCKERIO", "").strip()
         or os.environ.get("HARBOR_CACHE_PROJECT_DOCKERHUB", "").strip(),
@@ -128,6 +147,8 @@ def harbor_pull_ref(image: str) -> str | None:
     ref = f"{harbor_host}/{project}/{path}"
     if tag:
         ref = f"{ref}:{tag}"
+    if digest:
+        ref = f"{ref}@{digest}"
     return ref
 
 
@@ -140,6 +161,7 @@ def load_images(compose_file: str, profiles: list[str], targets_file: str | None
 
     images: list[str] = []
     seen: set[str] = set()
+
     for image in compose_images:
         image = image.strip()
         if image and image not in seen:
@@ -173,6 +195,7 @@ def login_harbor_if_needed() -> None:
     harbor_host = os.environ.get("HARBOR_CACHE_HOST", "").strip().rstrip("/")
     harbor_user = os.environ.get("HARBOR_CACHE_USERNAME", "").strip()
     harbor_password = os.environ.get("HARBOR_CACHE_PASSWORD", "").strip()
+
     if not (harbor_host and harbor_user and harbor_password):
         return
 
@@ -183,31 +206,50 @@ def login_harbor_if_needed() -> None:
     )
 
 
-def pull_and_tag(image: str) -> bool:
+def pull_image(image: str) -> bool:
     force_pull = truthy(os.environ.get("DOCKER_CACHE_FORCE_PULL"), default=False)
+
     if not force_pull and image_exists(image):
-        print(f"Already present locally, skipping {image}")
+        print(f"Already present locally, removing existing image to save disk: {image}")
+        cleanup_image_ref(image)
+        cleanup_after_image()
         return True
 
     harbor_ref = harbor_pull_ref(image)
-    pull_ref = harbor_ref or image
+    pull_candidates: list[str] = []
 
-    print(f"Pulling {image} from {pull_ref}")
-    code = run_command_with_retry(["docker", "pull", pull_ref], attempts=3, delay_seconds=5)
-    if code != 0:
-        return False
+    if harbor_ref:
+        pull_candidates.append(harbor_ref)
 
-    if harbor_ref and harbor_ref != image:
-        print(f"Tagging {pull_ref} as {image}")
-        tag_code = run_command_with_retry(["docker", "tag", pull_ref, image], attempts=2, delay_seconds=2)
-        if tag_code != 0:
-            return False
+        if truthy(os.environ.get("HARBOR_CACHE_FALLBACK_TO_ORIGIN"), default=True):
+            pull_candidates.append(image)
+    else:
+        pull_candidates.append(image)
 
-        if not truthy(os.environ.get("HARBOR_CACHE_KEEP_PROXY_TAG"), default=False):
-            print(f"Removing temporary Harbor proxy-cache tag {pull_ref}")
-            run_command(["docker", "rmi", pull_ref])
+    for pull_ref in pull_candidates:
+        print(f"Pulling {image} from {pull_ref}")
+        code = run_command_with_retry(["docker", "pull", pull_ref], attempts=2, delay_seconds=5)
 
-    return True
+        if code == 0:
+            print(f"Pulled successfully: {pull_ref}")
+            cleanup_image_ref(pull_ref)
+
+            if pull_ref != image:
+                cleanup_image_ref(image)
+
+            cleanup_after_image()
+            return True
+
+        print(f"[WARN] Failed to pull {pull_ref}")
+        cleanup_image_ref(pull_ref)
+
+        if pull_ref != image:
+            cleanup_image_ref(image)
+
+        cleanup_after_image()
+
+    print(f"[ERROR] Broken or unavailable image: {image}")
+    return False
 
 
 def main() -> int:
@@ -225,26 +267,38 @@ def main() -> int:
     images = load_images(args.compose_file, profiles, targets_file)
 
     failures: list[str] = []
-    pulled_or_present = 0
+    succeeded = 0
+    skipped = 0
 
     for image in images:
         if should_skip_image(image):
             print(f"Skipping non-pull image {image}")
+            skipped += 1
             continue
-        if pull_and_tag(image):
-            pulled_or_present += 1
+
+        if pull_image(image):
+            succeeded += 1
         else:
             failures.append(image)
 
     prune_docker_space_after_pull()
 
+    print("\nImage prewarm summary:")
+    print(f"- Successful images: {succeeded}")
+    print(f"- Skipped images: {skipped}")
+    print(f"- Broken images: {len(failures)}")
+
     if failures:
-        print("\nImage prewarm completed with failures:")
+        print("\nBroken or unavailable Docker images:")
         for image in failures:
             print(f"- {image}")
+
+        if truthy(os.environ.get("DOCKER_CACHE_IGNORE_FAILURES"), default=False):
+            print("\nDOCKER_CACHE_IGNORE_FAILURES=true, so exiting successfully despite broken images.")
+            return 0
+
         return 1
 
-    print(f"Prewarmed {pulled_or_present} images successfully.")
     return 0
 
 
