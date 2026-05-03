@@ -1286,13 +1286,13 @@ services:
 
   nmap-scanner:
     build:
-      context: "./The Eyes"
-      dockerfile: network-scanner/Dockerfile
+      context: "./The Eyes/nmap"
+      dockerfile: Dockerfile
       cache_from:
         - "${BUILDKIT_CACHE_FROM:-type=local,src=.buildx-cache}"
       cache_to:
         - "${BUILDKIT_CACHE_TO:-type=local,dest=.buildx-cache,mode=max}"
-    image: hq-sec-stack-network-scanner
+    image: hq-sec-stack-nmap-scanner
     container_name: nmap-scanner
     profiles: ["network", "all"]
     command: ["/usr/local/bin/scan.sh"]
@@ -1306,13 +1306,13 @@ services:
 
   wireshark-scanner:
     build:
-      context: "./The Eyes"
-      dockerfile: network-scanner/Dockerfile
+      context: "./The Eyes/wireshark"
+      dockerfile: Dockerfile
       cache_from:
         - "${BUILDKIT_CACHE_FROM:-type=local,src=.buildx-cache}"
       cache_to:
         - "${BUILDKIT_CACHE_TO:-type=local,dest=.buildx-cache,mode=max}"
-    image: hq-sec-stack-network-scanner
+    image: hq-sec-stack-wireshark-scanner
     container_name: wireshark-scanner
     profiles: ["network", "all"]
     network_mode: host
