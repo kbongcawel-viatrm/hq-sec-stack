@@ -90,7 +90,6 @@ jobs:
               registry.community.greenbone.net/community/ospd-openvas:stable
               registry.community.greenbone.net/community/gvm-tools:latest
 
-          #- name: ol
 
     steps:
       - name: Checkout repository
@@ -133,7 +132,7 @@ jobs:
       - name: Show generated artifacts
         if: always()
         run: |
-          find /root/artifacts -type f -name "*.tar.gz" -print || true
+          find /${{ runner.temp }}/artifacts -type f -name "*.tar.gz" -print || true
           du -sh /${{ runner.temp }}/artifacts || true
           df -h /${{ runner.temp }}/ || true
           docker system df || true

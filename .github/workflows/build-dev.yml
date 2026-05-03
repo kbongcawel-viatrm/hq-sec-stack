@@ -28,13 +28,13 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           pattern: docker-images-*
-          path: /tmp/artifacts
+          path: /{{ runner.temp }}/artifacts
           merge-multiple: true
 
       - name: Show downloaded artifacts
         run: |
           echo "Artifacts:"
-          find /tmp/artifacts -type f -name "*.tar.gz" -print
+          find /${{ runner.temp }}/artifacts -type f -name "*.tar.gz" -print
 
       # -------------------------------
       # Load Docker images
@@ -78,7 +78,7 @@ jobs:
       - name: Cleanup
         if: always()
         run: |
-          rm -rf /tmp/artifacts
+          rm -rf /{{ runner.temp }}/artifacts
           docker container prune -f || true
           docker image prune -af || true
           docker volume prune -f || true
