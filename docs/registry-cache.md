@@ -34,7 +34,7 @@ Use these upstream registry URLs when you create the Harbor `Registries -> New E
 | GitHub Container Registry | `https://ghcr.io` |
 | Greenbone Community Registry | `https://registry.community.greenbone.net` |
 
-The cache helper maps `docker.io` image references to `HARBOR_CACHE_PROJECT_DOCKERIO` first, then `HARBOR_CACHE_PROJECT_DOCKERHUB`, `ghcr.io` to the GHCR proxy project, and `registry.community.greenbone.net` to the Greenbone proxy project. The Greenbone Redis service now pulls from the Docker Hub mirror `greenbone/redis-server:latest` to avoid the community registry pull path during warmup.
+The cache helper maps `docker.io` image references to `HARBOR_CACHE_PROJECT_DOCKERIO` first, then `HARBOR_CACHE_PROJECT_DOCKERHUB`, `ghcr.io` to the GHCR proxy project, and `registry.community.greenbone.net` to the Greenbone proxy project. The Greenbone Redis service now pulls from the Docker Hub mirror `greenbone/redis-server:latest`, and the SCAP data container uses the Docker Hub mirror `vulnvision/greenbone-scap-data:latest` to avoid the flaky community registry pull path during warmup.
 
 ## Required Environment Variables
 

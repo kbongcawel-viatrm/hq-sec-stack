@@ -934,7 +934,7 @@ services:
     logging: *graylog-logging
 
   scap-data:
-    image: registry.community.greenbone.net/community/scap-data:${GREENBONE_DATA_TAG:-latest}
+    image: ${SCAP_DATA_IMAGE:-vulnvision/greenbone-scap-data:latest}
     container_name: scap-data
     profiles: ["vuln", "all"]
     environment:

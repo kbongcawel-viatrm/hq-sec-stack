@@ -26,7 +26,7 @@ cytopia/ansible:2.16-tools
 osquery/osquery:5.8.2-ubuntu22.04
 registry.community.greenbone.net/community/vulnerability-tests:latest
 registry.community.greenbone.net/community/notus-data:latest
-registry.community.greenbone.net/community/scap-data:latest
+vulnvision/greenbone-scap-data:latest
 registry.community.greenbone.net/community/cert-bund-data:latest
 registry.community.greenbone.net/community/dfn-cert-data:latest
 registry.community.greenbone.net/community/data-objects:latest

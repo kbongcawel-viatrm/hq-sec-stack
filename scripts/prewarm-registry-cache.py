@@ -26,6 +26,24 @@ def run_command(cmd: list[str], *, input_text: str | None = None) -> int:
     return proc.returncode
 
 
+def run_command_with_retry(
+    cmd: list[str],
+    *,
+    input_text: str | None = None,
+    attempts: int = 3,
+    delay_seconds: int = 5,
+) -> int:
+    last_code = 0
+    for attempt in range(1, attempts + 1):
+        last_code = run_command(cmd, input_text=input_text)
+        if last_code == 0:
+            return 0
+        if attempt < attempts:
+            print(f"Retrying {' '.join(cmd)} ({attempt}/{attempts})")
+            subprocess.run(["sleep", str(delay_seconds * attempt)], check=False)
+    return last_code
+
+
 def capture_command(cmd: list[str]) -> str:
     proc = subprocess.run(cmd, text=True, check=False, capture_output=True)
     if proc.returncode != 0:
@@ -143,13 +161,13 @@ def pull_and_tag(image: str) -> bool:
     harbor_ref = harbor_pull_ref(image)
     pull_ref = harbor_ref or image
     print(f"Pulling {image} from {pull_ref}")
-    code = run_command(["docker", "pull", pull_ref])
+    code = run_command_with_retry(["docker", "pull", pull_ref], attempts=3, delay_seconds=5)
     if code != 0:
         return False
 
     if harbor_ref and harbor_ref != image:
         print(f"Tagging {pull_ref} as {image}")
-        tag_code = run_command(["docker", "tag", pull_ref, image])
+        tag_code = run_command_with_retry(["docker", "tag", pull_ref, image], attempts=2, delay_seconds=2)
         if tag_code != 0:
             return False
     return True
