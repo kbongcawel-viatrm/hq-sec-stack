@@ -1,96 +1,82 @@
-name: Build HQ Security Stack (Development)
+name: Build Dev Docker Artifacts
+
 on:
   workflow_dispatch:
     inputs:
-      tag:
-        description: "Git tag to build (images-v2-XXXX)"
-        required: true
-        type: string
-      profiles:
-        description: "Optional compose profiles"
+      artifact_tag:
+        description: "Artifact tag suffix, for example dev-v1.0"
         required: false
-        default: ""
-        type: string
+        default: "dev-v1.0"
+  push:
+    branches:
+      - dev
+      - develop
 
 permissions:
   contents: read
 
+env:
+  COMPOSE_FILE: security-stack.compose.yml
+  CACHE_TARGETS_FILE: The Shield/scanner/targets.txt
+  DOCKER_ARTIFACT_DIR: artifact
+  DOCKER_CACHE_PRUNE_BEFORE_PULL: "true"
+  DOCKER_CACHE_PRUNE_AFTER_PULL: "true"
+  DOCKER_CACHE_PRUNE_AFTER_EACH_IMAGE: "false"
+  DOCKER_CACHE_FORCE_PULL: "true"
+  DOCKER_CACHE_IGNORE_FAILURES: "false"
+  HARBOR_CACHE_FALLBACK_TO_ORIGIN: "true"
+
 jobs:
-  validate:
-    name: Validate Compose and Sync Images
+  build-dev-artifacts:
+    name: Build dev image artifacts
     runs-on: ubuntu-latest
-    environment: dev
-
-    env:
-      SECSTACK_PROFILES: ${{ inputs.profiles || vars.DEV_SECSTACK_PROFILES || 'all' }}
-
-      DOCKER_BUILDKIT: "1"
-      COMPOSE_DOCKER_CLI_BUILD: "1"
-
-      DOCKER_CACHE_PRUNE_BEFORE_PULL: "true"
-      DOCKER_CACHE_PRUNE_AFTER_PULL: "true"
-      DOCKER_CACHE_PRUNE_AFTER_EACH_IMAGE: "true"
-      DOCKER_CACHE_IGNORE_FAILURES: "true"
-
-      HARBOR_CACHE_HOST: ${{ vars.HARBOR_CACHE_HOST }}
-      HARBOR_CACHE_USERNAME: ${{ vars.HARBORUSER }}
-      HARBOR_CACHE_PASSWORD: ${{ secrets.HARBORPW }}
-
-      HARBOR_CACHE_PROJECT_DOCKERIO: ${{ vars.HARBOR_CACHE_PROJECT_DOCKERIO }}
-      HARBOR_CACHE_PROJECT_DOCKERHUB: ${{ vars.HARBOR_CACHE_PROJECT_DOCKERHUB }}
-      HARBOR_CACHE_PROJECT_GHCR: ${{ vars.HARBOR_CACHE_PROJECT_GHCR }}
-      HARBOR_CACHE_PROJECT_GREENBONE: ${{ vars.HARBOR_CACHE_PROJECT_GREENBONE }}
-      HARBOR_CACHE_PROJECT_DEFAULT: ${{ vars.HARBOR_CACHE_PROJECT_DEFAULT }}
-
-      HARBOR_CACHE_FALLBACK_TO_ORIGIN: "true"
+    timeout-minutes: 120
 
     steps:
-      - name: Checkout selected tag
+      - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          ref: ${{ inputs.tag }}
-          fetch-depth: 0
 
-      - name: Report build ref
+      - name: Set artifact tag
+        shell: bash
         run: |
-          echo "Selected tag: ${{ inputs.tag }}"
-          echo "Git ref: ${GITHUB_REF}"
-          echo "Git ref name: ${GITHUB_REF_NAME}"
-          echo "Commit: ${GITHUB_SHA}"
-          echo "Validating profiles: ${SECSTACK_PROFILES}"
-      - name: Create environment file
-        env:
-          CADDY_CROWDSEC_API_KEY: ${{ secrets.CADDY_CROWDSEC_API_KEY }}
-        run: |
-          cp .env.example .env
+          ARTIFACT_TAG="${{ github.event.inputs.artifact_tag }}"
+          if [ -z "$ARTIFACT_TAG" ]; then
+            ARTIFACT_TAG="dev-${GITHUB_RUN_NUMBER}"
+          fi
+          echo "DOCKER_ARTIFACT_TAG=$ARTIFACT_TAG" >> "$GITHUB_ENV"
 
-      - name: Login to Harbor
-        if: env.HARBOR_CACHE_HOST != ''
+      - name: Login to Harbor cache
+        if: ${{ secrets.HARBOR_CACHE_HOST != '' && secrets.HARBOR_CACHE_USERNAME != '' && secrets.HARBOR_CACHE_PASSWORD != '' }}
+        shell: bash
         run: |
-          echo "${HARBOR_CACHE_PASSWORD}" | docker login "${HARBOR_CACHE_HOST}" \
-            -u "${HARBOR_CACHE_USERNAME}" \
+          echo "${{ secrets.HARBOR_CACHE_PASSWORD }}" | docker login "${{ secrets.HARBOR_CACHE_HOST }}" \
+            -u "${{ secrets.HARBOR_CACHE_USERNAME }}" \
             --password-stdin
 
-      - name: Pull images from Harbor-backed compose refs
+      - name: Prewarm registry cache and create artifacts
+        shell: bash
+        env:
+          SECSTACK_PROFILES: ${{ vars.SECSTACK_PROFILES || 'all' }}
+          HARBOR_CACHE_HOST: ${{ secrets.HARBOR_CACHE_HOST }}
+          HARBOR_CACHE_USERNAME: ${{ secrets.HARBOR_CACHE_USERNAME }}
+          HARBOR_CACHE_PASSWORD: ${{ secrets.HARBOR_CACHE_PASSWORD }}
+          HARBOR_CACHE_PROJECT_DOCKERIO: ${{ vars.HARBOR_CACHE_PROJECT_DOCKERIO }}
+          HARBOR_CACHE_PROJECT_DOCKERHUB: ${{ vars.HARBOR_CACHE_PROJECT_DOCKERHUB }}
+          HARBOR_CACHE_PROJECT_GHCR: ${{ vars.HARBOR_CACHE_PROJECT_GHCR }}
+          HARBOR_CACHE_PROJECT_GREENBONE: ${{ vars.HARBOR_CACHE_PROJECT_GREENBONE }}
+          HARBOR_CACHE_PROJECT_DEFAULT: ${{ vars.HARBOR_CACHE_PROJECT_DEFAULT }}
         run: |
-          set -eu
-          set --
-          for profile in ${SECSTACK_PROFILES} monitor; do
-            set -- "$@" --profile "$profile"
-          done
-                    
-          docker compose --env-file .env -f security-stack.compose.yml "$@" config #validate config
-          docker compose --env-file .env -f security-stack.compose.yml "$@" pull #pull images
+          python3 scripts/prewarm-registry-cache-final.py \
+            --artifact-tag "$DOCKER_ARTIFACT_TAG" \
+            --artifact-dir "$DOCKER_ARTIFACT_DIR" \
+            --compose-file "$COMPOSE_FILE" \
+            --profiles "${SECSTACK_PROFILES} monitor" \
+            --targets-file "$CACHE_TARGETS_FILE"
 
-      - name: Start compose stack for monitor validation
-        run: |
-          set -eu
-          set --
-          for profile in ${SECSTACK_PROFILES} monitor; do
-            set -- "$@" --profile "$profile"
-          done
-
-          docker compose --env-file .env -f security-stack.compose.yml "$@" up -d --build --pull never --remove-orphans  #build
-      - name: Validate Uptime Kuma targets
-        run: |
-          docker compose --env-file .env -f security-stack.compose.yml --profile monitor run --rm --no-deps --entrypoint python uptime-kuma-sync /uptime-kuma/scripts/validate-monitors.py
+      - name: Upload dev artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-image-artifacts-dev-${{ github.run_number }}
+          path: artifact/*.tar.gz
+          if-no-files-found: error
+          retention-days: 14

@@ -3,9 +3,11 @@
 
 This script is optimized for low disk usage in CI runners:
 - Pulls images through Harbor proxy cache when configured.
-- Does not retag Harbor images as original image refs.
-- Removes each pulled image immediately after validation/cache warming.
-- Cleans dangling images/build cache after each image when enabled.
+- Tags each successfully pulled image with a dynamic artifact name.
+- Saves each tagged image to a .tar file.
+- Compresses each .tar file to .tar.gz.
+- Moves compressed artifacts into the artifact directory.
+- Prunes containers, images, volumes, and build cache after artifact creation.
 - Continues when an image is missing or broken.
 - Lists all broken/unavailable images at the end.
 
@@ -16,12 +18,16 @@ Environment variables:
 - DOCKER_CACHE_FORCE_PULL=true
 - DOCKER_CACHE_IGNORE_FAILURES=true
 - HARBOR_CACHE_FALLBACK_TO_ORIGIN=true
+- DOCKER_ARTIFACT_TAG=v1.0
+- DOCKER_ARTIFACT_DIR=artifact
 """
 
 from __future__ import annotations
 
 import argparse
+import gzip
 import os
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -40,6 +46,12 @@ def run_command(cmd: list[str], *, input_text: str | None = None) -> int:
         check=False,
     )
     return proc.returncode
+
+
+def run_command_checked(cmd: list[str], *, input_text: str | None = None) -> None:
+    code = run_command(cmd, input_text=input_text)
+    if code != 0:
+        raise RuntimeError(f"command failed: {' '.join(cmd)}")
 
 
 def run_command_with_retry(
@@ -86,7 +98,7 @@ def prune_docker_space_after_pull() -> None:
 
 
 def cleanup_after_image() -> None:
-    if not truthy(os.environ.get("DOCKER_CACHE_PRUNE_AFTER_EACH_IMAGE"), default=True):
+    if not truthy(os.environ.get("DOCKER_CACHE_PRUNE_AFTER_EACH_IMAGE"), default=False):
         return
 
     print("Cleaning dangling Docker images and build cache after image")
@@ -206,14 +218,12 @@ def login_harbor_if_needed() -> None:
     )
 
 
-def pull_image(image: str) -> bool:
+def pull_image(image: str) -> str | None:
     force_pull = truthy(os.environ.get("DOCKER_CACHE_FORCE_PULL"), default=False)
 
     if not force_pull and image_exists(image):
-        print(f"Already present locally, removing existing image to save disk: {image}")
-        cleanup_image_ref(image)
-        cleanup_after_image()
-        return True
+        print(f"Already present locally: {image}")
+        return image
 
     harbor_ref = harbor_pull_ref(image)
     pull_candidates: list[str] = []
@@ -232,13 +242,8 @@ def pull_image(image: str) -> bool:
 
         if code == 0:
             print(f"Pulled successfully: {pull_ref}")
-            cleanup_image_ref(pull_ref)
-
-            if pull_ref != image:
-                cleanup_image_ref(image)
-
             cleanup_after_image()
-            return True
+            return pull_ref
 
         print(f"[WARN] Failed to pull {pull_ref}")
         cleanup_image_ref(pull_ref)
@@ -249,11 +254,109 @@ def pull_image(image: str) -> bool:
         cleanup_after_image()
 
     print(f"[ERROR] Broken or unavailable image: {image}")
-    return False
+    return None
+
+
+def sanitize_artifact_token(value: str) -> str:
+    token = value.strip().lower()
+    replacements = {
+        "/": "-",
+        "\\": "-",
+        ":": "-",
+        "@": "-",
+        " ": "-",
+        "_": "-",
+    }
+
+    for old, new in replacements.items():
+        token = token.replace(old, new)
+
+    return "-".join(part for part in token.split("-") if part)
+
+
+def image_filename(image: str) -> str:
+    ref = image.strip()
+
+    if "@" in ref:
+        ref = ref.split("@", 1)[0]
+
+    last_slash = ref.rfind("/")
+    last_colon = ref.rfind(":")
+    if last_colon > last_slash:
+        ref = ref[:last_colon]
+
+    filename = ref.split("/")[-1]
+    filename = sanitize_artifact_token(filename)
+
+    if not filename:
+        raise RuntimeError(f"Unable to infer artifact filename from image: {image}")
+
+    return filename
+
+
+def artifact_release_name(image: str, tag: str) -> str:
+    artifact_name = image_filename(image)
+    artifact_tag = sanitize_artifact_token(tag)
+
+    if not artifact_tag:
+        raise RuntimeError("Artifact tag cannot be empty")
+
+    return f"{artifact_name}-{artifact_tag}"
+
+
+def compress_tar(tar_path: Path, gz_path: Path) -> None:
+    with tar_path.open("rb") as source:
+        with gzip.open(gz_path, "wb") as target:
+            shutil.copyfileobj(source, target)
+
+
+def create_docker_artifact(image: str, tag: str, out_dir: str) -> Path:
+    release_name = artifact_release_name(image, tag)
+    tar_path = Path(f"{release_name}.tar")
+    gz_path = Path(f"{release_name}.tar.gz")
+    artifact_dir = Path(out_dir)
+    artifact_path = artifact_dir / gz_path.name
+
+    print(f"Creating Docker image tag: {release_name}")
+    run_command_checked(["docker", "tag", image, release_name])
+
+    print(f"Saving Docker image artifact: {tar_path}")
+    run_command_checked(["docker", "save", "-o", str(tar_path), release_name])
+
+    print(f"Compressing Docker image artifact: {gz_path}")
+    if gz_path.exists():
+        gz_path.unlink()
+    compress_tar(tar_path, gz_path)
+
+    print(f"Creating artifact directory: {artifact_dir}")
+    artifact_dir.mkdir(parents=True, exist_ok=True)
+
+    print(f"Moving artifact to: {artifact_path}")
+    if artifact_path.exists():
+        artifact_path.unlink()
+    gz_path.replace(artifact_path)
+
+    if tar_path.exists():
+        tar_path.unlink()
+
+    cleanup_image_ref(release_name)
+
+    print(f"Artifact created: {artifact_path}")
+    return artifact_path
+
+
+def prune_docker_artifact_resources() -> None:
+    print("Pruning Docker containers, images, volumes, and build cache")
+    run_command_checked(["docker", "container", "prune", "-f"])
+    run_command_checked(["docker", "image", "prune", "-af"])
+    run_command_checked(["docker", "volume", "prune", "-f"])
+    run_command_checked(["docker", "builder", "prune", "-af"])
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
+    parser.add_argument("--artifact-tag", default=os.environ.get("DOCKER_ARTIFACT_TAG", "v1.0"))
+    parser.add_argument("--artifact-dir", default=os.environ.get("DOCKER_ARTIFACT_DIR", "artifact"))
     parser.add_argument("--compose-file", default=os.environ.get("COMPOSE_FILE", "security-stack.compose.yml"))
     parser.add_argument("--profiles", default=os.environ.get("SECSTACK_PROFILES", "all"))
     parser.add_argument("--targets-file", default=os.environ.get("CACHE_TARGETS_FILE", "The Shield/scanner/targets.txt"))
@@ -267,6 +370,7 @@ def main() -> int:
     images = load_images(args.compose_file, profiles, targets_file)
 
     failures: list[str] = []
+    artifact_paths: list[Path] = []
     succeeded = 0
     skipped = 0
 
@@ -276,17 +380,29 @@ def main() -> int:
             skipped += 1
             continue
 
-        if pull_image(image):
-            succeeded += 1
-        else:
+        pulled_ref = pull_image(image)
+        if not pulled_ref:
             failures.append(image)
+            continue
+
+        succeeded += 1
+        artifact_paths.append(create_docker_artifact(pulled_ref, args.artifact_tag, args.artifact_dir))
 
     prune_docker_space_after_pull()
+
+    if artifact_paths:
+        prune_docker_artifact_resources()
 
     print("\nImage prewarm summary:")
     print(f"- Successful images: {succeeded}")
     print(f"- Skipped images: {skipped}")
     print(f"- Broken images: {len(failures)}")
+    print(f"- Artifacts created: {len(artifact_paths)}")
+
+    if artifact_paths:
+        print("\nDocker artifacts:")
+        for artifact_path in artifact_paths:
+            print(f"- {artifact_path}")
 
     if failures:
         print("\nBroken or unavailable Docker images:")
