@@ -2,6 +2,7 @@
 
 | Commit Message | Branch | Hash | Date |
 | --- | --- | --- | --- |
+| Rename deploy workflow to prd | dev | 0fc5c40 | 2026-05-03 |
 | Stabilize greenbone scap prewarm | dev | c32042a | 2026-05-03 |
 | Document local scanner Dockerfiles | dev | 0668693 | 2026-05-03 |
 | Use repo scanner Dockerfiles | dev | 8434c54 | 2026-05-03 |
