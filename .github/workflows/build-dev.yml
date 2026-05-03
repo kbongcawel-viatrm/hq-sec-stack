@@ -49,14 +49,34 @@ jobs:
             set -- "$@" --profile "$profile"
           done
           docker compose --env-file .env -f "$COMPOSE_FILE" "$@" config
+     
+      - name: Pull production artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-image-artifacts-prd-${{ github.run_id }}
+          path: downloaded-artifacts
 
-      - name: Docker compose build
+      - name: Load production artifacts
+        shell: bash
+        run: |
+          set -eu
+          for artifact in downloaded-artifacts/*.tar.gz; do
+            [ -e "$artifact" ] || {
+              echo "No Docker artifacts found"
+              exit 1
+            }
+            echo "Loading Docker artifact: $artifact"
+            gzip -dc "$artifact" | docker load
+          done
+
+      - name: Docker compose build from loaded artifacts
         shell: bash
         run: |
           set -eu
           set --
-          for profile in ${SECSTACK_PROFILES} monitor; do
+          for profile in ${SECSTACK_PROFILES}; do
             set -- "$@" --profile "$profile"
           done
           docker compose --env-file .env -f "$COMPOSE_FILE" "$@" config
           docker compose --env-file .env -f "$COMPOSE_FILE" "$@" build --pull never
+      
