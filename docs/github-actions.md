@@ -2,6 +2,7 @@
 
 This repository uses `.github/workflows/build-deploy.yml` for validation and manual deployment.
 Pushes to `dev` use `.github/workflows/build-dev.yml` to run the same validation pipeline without the deploy job.
+The dev workflow uses the GitHub Actions environment `dev`; the main deploy job uses `prod`.
 
 ## Required Repository Secrets
 
@@ -25,7 +26,8 @@ Create these in `Settings -> Secrets and variables -> Actions -> Variables`.
 | Name | Purpose | Default |
 | --- | --- | --- |
 | `DEPLOY_PORT` | SSH port for the deployment host. | `22` |
-| `SECSTACK_PROFILES` | Default compose profiles used by deploys. | `dns secrets brain ops` |
+| `DEV_SECSTACK_PROFILES` | Default compose profiles used by the dev validation workflow. | `all` |
+| `PROD_SECSTACK_PROFILES` | Default compose profiles used by the main deploy workflow. | `dns secrets brain ops` |
 
 ## Optional Workflow Dispatch Input
 

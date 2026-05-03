@@ -11,8 +11,9 @@ jobs:
   validate:
     name: Validate Compose and Scripts
     runs-on: ubuntu-latest
+    environment: dev
     env:
-      SECSTACK_PROFILES: all
+      SECSTACK_PROFILES: ${{ vars.DEV_SECSTACK_PROFILES || 'all' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
