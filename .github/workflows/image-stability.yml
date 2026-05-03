@@ -24,7 +24,7 @@ jobs:
 
       DOCKER_CACHE_PRUNE_BEFORE_PULL: "true"
       DOCKER_CACHE_PRUNE_AFTER_PULL: "true"
-      DOCKER_CACHE_PRUNE_AFTER_EACH_IMAGE: "true"
+      DOCKER_CACHE_PRUNE_AFTER_EACH_IMAGE: "false"
       DOCKER_CACHE_IGNORE_FAILURES: "true"
 
       HARBOR_CACHE_HOST: ${{ vars.HARBOR_CACHE_HOST }}
@@ -53,27 +53,41 @@ jobs:
           docker compose -f security-stack.compose.yml "$@" config
 
       - name: Login to Harbor
+        if: env.HARBOR_CACHE_HOST != '' && env.HARBOR_CACHE_USERNAME != '' && env.HARBOR_CACHE_PASSWORD != ''
         run: |
           echo "${HARBOR_CACHE_PASSWORD}" | docker login "${HARBOR_CACHE_HOST}" \
             -u "${HARBOR_CACHE_USERNAME}" \
             --password-stdin
-
-      - name: Warm Harbor proxy cache and validate image availability
-        run: |
-          python3 scripts/prewarm-registry-cache-final.py \
-            --compose-file security-stack.compose.yml \
-            --profiles "${SECSTACK_PROFILES} monitor" \
-            --targets-file "The Shield/scanner/targets.txt"
-
-      - name: Create semver tag for image set
+      
+      - name: Set artifact tag
         run: |
           VERSION="$(date -u +'%Y.%m.%d')"
           BUILD="$(date -u +'%H%M%S')"
           TAG_NAME="images-v${VERSION}.${BUILD}"
+          echo "TAG_NAME=$TAG_NAME" >> "$GITHUB_ENV"
+          echo "DOCKER_ARTIFACT_TAG=$TAG_NAME" >> "$GITHUB_ENV"
 
-          echo "Generated tag: $TAG_NAME"
+      - name: Pull images and compress
+        run: |
+            python3 scripts/prewarm-registry-cache-final.py \
+            --artifact-tag "${DOCKER_ARTIFACT_TAG}" \
+            --compose-file security-stack.compose.yml \
+            --profiles "${SECSTACK_PROFILES} monitor" \
+            --targets-file "The Shield/scanner/targets.txt"
 
-          if git rev-parse "$TAG_NAME" >/dev/null 2>&1; then
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-image-artifacts-${{ github.run_number }}
+          path: artifact/*.tar.gz
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Create tag for the build
+        run: |
+          echo "Generated tag: ${TAG_NAME}"
+
+          if git rev-parse "${TAG_NAME}" >/dev/null 2>&1; then
             echo "Tag already exists, skipping"
             exit 0
           fi
@@ -81,7 +95,8 @@ jobs:
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
 
-          git tag "$TAG_NAME"
-          git push origin "$TAG_NAME"
+          git tag "${TAG_NAME}"
+          git push origin "${TAG_NAME}"
 
-          echo "Created tag: $TAG_NAME"
+          echo "Created tag: ${TAG_NAME}"
+

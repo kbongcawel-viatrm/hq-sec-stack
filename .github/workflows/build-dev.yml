@@ -1,100 +1,62 @@
-name: Build Security Stack (dev)
+name: Build HQ Security Stack (Development)
 
 on:
   workflow_dispatch:
     inputs:
       profiles:
-        description: "Optional compose profiles to validate and deploy"
+        description: "Optional compose profiles"
         required: false
         default: ""
         type: string
+  push:
+    branches:
+      - dev
+      - develop
 
 permissions:
   contents: read
 
+env:
+  COMPOSE_FILE: security-stack.compose.yml
+
 jobs:
   validate:
-    name: Validate Compose and Scripts
+    name: Build development stack
     runs-on: ubuntu-latest
     environment: dev
+    timeout-minutes: 120
+
     env:
-      SECSTACK_PROFILES: ${{ vars.DEV_SECSTACK_PROFILES || 'all' }}
+      SECSTACK_PROFILES: ${{ inputs.profiles || vars.DEV_SECSTACK_PROFILES || 'all' }}
       DOCKER_BUILDKIT: "1"
       COMPOSE_DOCKER_CLI_BUILD: "1"
-      BUILDKIT_CACHE_FROM: type=gha
-      BUILDKIT_CACHE_TO: type=gha,mode=max
-      DOCKER_CACHE_PRUNE_BEFORE_PULL: "true"
-      HARBOR_CACHE_HOST: ${{ vars.HARBOR_CACHE_HOST }}
-      HARBOR_CACHE_USERNAME: ${{ secrets.HARBOR_CACHE_USERNAME }}
-      HARBOR_CACHE_PASSWORD: ${{ secrets.HARBOR_CACHE_PASSWORD }}
-      HARBOR_CACHE_PROJECT_DOCKERIO: ${{ vars.HARBOR_CACHE_PROJECT_DOCKERIO }}
-      HARBOR_CACHE_PROJECT_DOCKERHUB: ${{ vars.HARBOR_CACHE_PROJECT_DOCKERHUB }}
-      HARBOR_CACHE_PROJECT_GHCR: ${{ vars.HARBOR_CACHE_PROJECT_GHCR }}
-      HARBOR_CACHE_PROJECT_GREENBONE: ${{ vars.HARBOR_CACHE_PROJECT_GREENBONE }}
-      HARBOR_CACHE_PROJECT_DEFAULT: ${{ vars.HARBOR_CACHE_PROJECT_DEFAULT }}
+
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Create environment file
-        env:
-          CADDY_CROWDSEC_API_KEY: ${{ secrets.CADDY_CROWDSEC_API_KEY }}
+        shell: bash
         run: |
           cp .env.example .env
-          # Append stable image metadata if available
-          if [ -f stable-images.env ]; then
-            echo "Integrating stable image metadata from Harbor"
-            cat stable-images.env >> .env
-          fi
-
-          tmp_env="$(mktemp)"
-          while IFS= read -r line; do
-            case "$line" in
-              CADDY_CROWDSEC_API_KEY=*)
-                printf 'CADDY_CROWDSEC_API_KEY=%s\n' "$CADDY_CROWDSEC_API_KEY"
-                ;;
-              *)
-                printf '%s\n' "$line"
-                ;;
-            esac
-          done < .env > "$tmp_env"
-          mv "$tmp_env" .env
-
-      - name: Report validation profile selection
-        run: |
-          echo "Validating profiles: ${SECSTACK_PROFILES}"
 
       - name: Validate compose configuration
-        run: |
-          set -eu
-          set --
-          for profile in ${SECSTACK_PROFILES}; do
-            set -- "$@" --profile "$profile"
-          done
-          docker compose -f security-stack.compose.yml "$@" config
-
-      - name: Validate shell scripts
-        run: |
-          bash -n scripts/start-stack.sh
-          bash -n scripts/killswitch.sh
-          bash -n "The Hands/backup/scripts/backup-volumes.sh"
-          bash -n "The Hands/backup/scripts/restore-volume.sh"
-          bash -n "The Shield/scanner/scripts/scan-containers.sh"
-          bash -n "The Shield/vault/scripts/monthly-rotate.sh"
-
-      - name: Warm registry cache and pull images
-        run: |
-          python3 scripts/python/prewarm-registry-cache.py --compose-file security-stack.compose.yml --profiles "${SECSTACK_PROFILES} monitor" --targets-file "The Shield/scanner/targets.txt"
-
-      - name: Start compose stack for monitor validation
+        shell: bash
         run: |
           set -eu
           set --
           for profile in ${SECSTACK_PROFILES} monitor; do
             set -- "$@" --profile "$profile"
           done
-          docker compose -f security-stack.compose.yml "$@" up -d --build --pull never --remove-orphans
+          docker compose --env-file .env -f "$COMPOSE_FILE" "$@" config
 
-      - name: Validate Uptime Kuma targets
+      - name: Docker compose build
+        shell: bash
         run: |
-          docker compose -f security-stack.compose.yml --profile monitor run --rm --no-deps --entrypoint python uptime-kuma-sync /uptime-kuma/scripts/validate-monitors.py
+          set -eu
+          set --
+          for profile in ${SECSTACK_PROFILES} monitor; do
+            set -- "$@" --profile "$profile"
+          done
+          docker compose --env-file .env -f "$COMPOSE_FILE" "$@" config
+          docker compose --env-file .env -f "$COMPOSE_FILE" "$@" build --pull never
