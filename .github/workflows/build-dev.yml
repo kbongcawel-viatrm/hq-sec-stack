@@ -10,32 +10,48 @@ on:
         type: string
 
 permissions:
-  contents: read
-
-env:
-  COMPOSE_FILE: security-stack.compose.yml
+  contents: write
 
 jobs:
   validate:
-    name: Build development stack
+    name: Validate Compose and Sync Images
     runs-on: ubuntu-latest
     environment: dev
-    timeout-minutes: 120
 
     env:
-      SECSTACK_PROFILES: ${{ inputs.profiles || vars.DEV_SECSTACK_PROFILES || 'all' }}
+      SECSTACK_PROFILES: ${{ vars.DEV_SECSTACK_PROFILES || 'all' }}
+
       DOCKER_BUILDKIT: "1"
       COMPOSE_DOCKER_CLI_BUILD: "1"
 
+      DOCKER_CACHE_PRUNE_BEFORE_PULL: "true"
+      DOCKER_CACHE_PRUNE_AFTER_PULL: "true"
+      DOCKER_CACHE_PRUNE_AFTER_EACH_IMAGE: "false"
+      DOCKER_CACHE_IGNORE_FAILURES: "true"
+
+      HARBOR_CACHE_HOST: ${{ vars.HARBOR_CACHE_HOST }}
+      HARBOR_CACHE_USERNAME: ${{ vars.HARBORUSER }}
+      HARBOR_CACHE_PASSWORD: ${{ secrets.HARBORPW }}
+
+      HARBOR_CACHE_PROJECT_DOCKERIO: ${{ vars.HARBOR_CACHE_PROJECT_DOCKERIO }}
+      HARBOR_CACHE_PROJECT_DOCKERHUB: ${{ vars.HARBOR_CACHE_PROJECT_DOCKERHUB }}
+      HARBOR_CACHE_PROJECT_GHCR: ${{ vars.HARBOR_CACHE_PROJECT_GHCR }}
+      HARBOR_CACHE_PROJECT_GREENBONE: ${{ vars.HARBOR_CACHE_PROJECT_GREENBONE }}
+      HARBOR_CACHE_PROJECT_DEFAULT: ${{ vars.HARBOR_CACHE_PROJECT_DEFAULT }}
+
+      HARBOR_CACHE_FALLBACK_TO_ORIGIN: "true"
+
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Create environment file
-        shell: bash
+      
+      - name: Login to Harbor
+        if: env.HARBOR_CACHE_HOST != '' && env.HARBOR_CACHE_USERNAME != '' && env.HARBOR_CACHE_PASSWORD != ''
         run: |
-          cp .env.example .env
-
+          echo "${HARBOR_CACHE_PASSWORD}" | docker login "${HARBOR_CACHE_HOST}" \
+            -u "${HARBOR_CACHE_USERNAME}" \
+            --password-stdin
+       
       - name: Validate compose configuration
         shell: bash
         run: |
@@ -46,11 +62,11 @@ jobs:
           done
           docker compose --env-file .env -f "$COMPOSE_FILE" "$@" config
      
-      - name: Pull production artifacts
+      - name: Pull artifacts
         uses: actions/download-artifact@v4
         with:
-          name: docker-image-artifacts-prd-${{ github.run_id }}
-          path: downloaded-artifacts
+          name: docker-image-artifacts-${{ github.run_number }}
+          path: artifact/*.tar.gz
 
       - name: Load production artifacts
         shell: bash
