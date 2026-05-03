@@ -2,6 +2,7 @@
 
 | Commit Message | Branch | Hash | Date |
 | --- | --- | --- | --- |
+| Bump osquery image version | dev | 6c5ca9a2096dce5196f0d21a30227f75bbcf5673 | 2026-05-03 |
 | Add BuildKit cache settings | dev | c300c10ed2fb9c45dac9a1884ddddac5a52d2701 | 2026-05-03 |
 | Ignore pull failures in dev workflow | dev | 94252e883aa0009cd1c9b1fb2d8108fc0876e7d0 | 2026-05-03 |
 | Split Shuffle into public GHCR services | dev | 19240ff1ecd8e475577898bebb356db5e5173fbd | 2026-05-03 |
