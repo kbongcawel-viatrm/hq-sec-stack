@@ -54,4 +54,4 @@ Use the workflow dispatch run first when validating repo settings:
 
 The validate job runs `docker compose config`, checks shell syntax, and prewarms the core images needed for the main stack profiles. If a repository is missing or denied, the workflow reports it after the full prewarm pass instead of failing deep in `docker compose up`. The build cache defaults to a local `.buildx-cache` directory for developer runs and switches to GitHub Actions cache in CI. Harbor proxy cache setup details live in [docs/registry-cache.md](registry-cache.md).
 
-Harbor endpoint URLs to configure are documented there as well: Docker Hub `https://registry-1.docker.io`, GHCR `https://ghcr.io`, and Greenbone `https://registry.community.greenbone.net`.
+Harbor endpoint URLs to configure are documented there as well: Docker Hub `https://registry-1.docker.io`, GHCR `https://ghcr.io`, and Greenbone `https://registry.community.greenbone.net`. The repo accepts both `HARBOR_CACHE_PROJECT_DOCKERIO` and `HARBOR_CACHE_PROJECT_DOCKERHUB` for the Docker Hub proxy project name.

@@ -72,7 +72,8 @@ def harbor_pull_ref(image: str) -> str | None:
 
     registry, path, tag, _digest = split_image_ref(image)
     project_map = {
-        "docker.io": os.environ.get("HARBOR_CACHE_PROJECT_DOCKERHUB", "").strip(),
+        "docker.io": os.environ.get("HARBOR_CACHE_PROJECT_DOCKERIO", "").strip()
+        or os.environ.get("HARBOR_CACHE_PROJECT_DOCKERHUB", "").strip(),
         "ghcr.io": os.environ.get("HARBOR_CACHE_PROJECT_GHCR", "").strip(),
         "registry.community.greenbone.net": os.environ.get("HARBOR_CACHE_PROJECT_GREENBONE", "").strip(),
     }

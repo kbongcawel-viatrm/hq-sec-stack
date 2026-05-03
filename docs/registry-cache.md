@@ -33,7 +33,7 @@ Use these upstream registry URLs when you create the Harbor `Registries -> New E
 | GitHub Container Registry | `https://ghcr.io` |
 | Greenbone Community Registry | `https://registry.community.greenbone.net` |
 
-The cache helper maps `docker.io` image references to the Docker Hub proxy project, `ghcr.io` to the GHCR proxy project, and `registry.community.greenbone.net` to the Greenbone proxy project.
+The cache helper maps `docker.io` image references to `HARBOR_CACHE_PROJECT_DOCKERIO` first, then `HARBOR_CACHE_PROJECT_DOCKERHUB`, `ghcr.io` to the GHCR proxy project, and `registry.community.greenbone.net` to the Greenbone proxy project.
 
 ## Required Environment Variables
 
@@ -42,6 +42,7 @@ Set these in `.env` or in GitHub Actions variables/secrets as appropriate:
 - `HARBOR_CACHE_HOST`
 - `HARBOR_CACHE_USERNAME`
 - `HARBOR_CACHE_PASSWORD`
+- `HARBOR_CACHE_PROJECT_DOCKERIO`
 - `HARBOR_CACHE_PROJECT_DOCKERHUB`
 - `HARBOR_CACHE_PROJECT_GHCR`
 - `HARBOR_CACHE_PROJECT_GREENBONE`
