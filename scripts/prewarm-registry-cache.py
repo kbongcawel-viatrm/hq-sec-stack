@@ -190,24 +190,40 @@ def pull_and_tag(image: str) -> bool:
         return True
 
     harbor_ref = harbor_pull_ref(image)
-    pull_ref = harbor_ref or image
 
-    print(f"Pulling {image} from {pull_ref}")
-    code = run_command_with_retry(["docker", "pull", pull_ref], attempts=3, delay_seconds=5)
-    if code != 0:
-        return False
+    pull_candidates: list[tuple[str, bool]] = []
 
-    if harbor_ref and harbor_ref != image:
-        print(f"Tagging {pull_ref} as {image}")
-        tag_code = run_command_with_retry(["docker", "tag", pull_ref, image], attempts=2, delay_seconds=2)
-        if tag_code != 0:
-            return False
+    if harbor_ref:
+        pull_candidates.append((harbor_ref, True))
 
-        if not truthy(os.environ.get("HARBOR_CACHE_KEEP_PROXY_TAG"), default=False):
-            print(f"Removing temporary Harbor proxy-cache tag {pull_ref}")
-            run_command(["docker", "rmi", pull_ref])
+        if truthy(os.environ.get("HARBOR_CACHE_FALLBACK_TO_ORIGIN"), default=True):
+            pull_candidates.append((image, False))
+    else:
+        pull_candidates.append((image, False))
 
-    return True
+    for pull_ref, is_harbor_ref in pull_candidates:
+        print(f"Pulling {image} from {pull_ref}")
+        code = run_command_with_retry(["docker", "pull", pull_ref], attempts=3, delay_seconds=5)
+
+        if code != 0:
+            print(f"Failed to pull {pull_ref}")
+            continue
+
+        if is_harbor_ref and pull_ref != image:
+            print(f"Tagging {pull_ref} as {image}")
+            tag_code = run_command_with_retry(["docker", "tag", pull_ref, image], attempts=2, delay_seconds=2)
+            if tag_code != 0:
+                print(f"Failed to tag {pull_ref} as {image}")
+                continue
+
+            if not truthy(os.environ.get("HARBOR_CACHE_KEEP_PROXY_TAG"), default=False):
+                print(f"Removing temporary Harbor proxy-cache tag {pull_ref}")
+                run_command(["docker", "rmi", pull_ref])
+
+        return True
+
+    print(f"Broken image: {image}")
+    return False
 
 
 def main() -> int:
@@ -239,9 +255,11 @@ def main() -> int:
     prune_docker_space_after_pull()
 
     if failures:
-        print("\nImage prewarm completed with failures:")
+        print("\nBroken or unavailable Docker images:")
         for image in failures:
             print(f"- {image}")
+
+        print(f"\nCompleted with {len(failures)} broken image(s).")
         return 1
 
     print(f"Prewarmed {pulled_or_present} images successfully.")
