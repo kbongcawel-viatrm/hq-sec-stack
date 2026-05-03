@@ -12,9 +12,6 @@ on:
         required: false
         default: ""
         type: string
-  push:
-    tags:
-      - "v*"
 
 permissions:
   contents: read
