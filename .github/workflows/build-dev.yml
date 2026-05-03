@@ -1,8 +1,8 @@
 name: Build Security Stack (dev)
 
 on:
-  push:
-    branches: ["dev"]
+  #push:
+  branches: ["dev"]
 
 permissions:
   contents: read
