@@ -79,7 +79,7 @@ jobs:
 
       - name: Warm registry cache and pull images
         run: |
-          python3 scripts/prewarm-registry-cache.py --compose-file security-stack.compose.yml --profiles "dns secrets brain" --targets-file "The Shield/scanner/targets.txt"
+          python3 scripts/python/prewarm-registry-cache.py --compose-file security-stack.compose.yml --profiles "dns secrets brain" --targets-file "The Shield/scanner/targets.txt"
 
   deploy:
     name: Deploy to Docker Host

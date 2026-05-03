@@ -1,8 +1,8 @@
 name: Build Security Stack (dev)
 
 on:
-  #push:
-  branches: ["dev"]
+  push:
+    branches: ["dev"]
 
 permissions:
   contents: read
@@ -36,6 +36,12 @@ jobs:
           CADDY_CROWDSEC_API_KEY: ${{ secrets.CADDY_CROWDSEC_API_KEY }}
         run: |
           cp .env.example .env
+          # Append stable image metadata if available
+          if [ -f stable-images.env ]; then
+            echo "Integrating stable image metadata from Harbor"
+            cat stable-images.env >> .env
+          fi
+          
           tmp_env="$(mktemp)"
           while IFS= read -r line; do
             case "$line" in
@@ -73,7 +79,7 @@ jobs:
 
       - name: Warm registry cache and pull images
         run: |
-          python3 scripts/prewarm-registry-cache.py --compose-file security-stack.compose.yml --profiles "${SECSTACK_PROFILES} monitor" --targets-file "The Shield/scanner/targets.txt"
+          python3 scripts/python/prewarm-registry-cache.py --compose-file security-stack.compose.yml --profiles "${SECSTACK_PROFILES} monitor" --targets-file "The Shield/scanner/targets.txt"
 
       - name: Start compose stack for monitor validation
         run: |
