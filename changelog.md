@@ -2,6 +2,7 @@
 
 | Commit Message | Branch | Hash | Date |
 | --- | --- | --- | --- |
+| Document Harbor proxy cache endpoints | dev | a5ba376fc7348402fc859240b5f82ddf55a38680 | 2026-05-03 |
 | Enable BuildKit cache usage | dev | 4a1849dccc26104b87a25218b14c42a1d2931d2a | 2026-05-03 |
 | Add Docker pruning and Harbor cache prewarm | dev | bd4cf281dbd26b056cc5d76bb1ac528090e9984b | 2026-05-03 |
 | Aggregate pull failures and bump Velociraptor | dev | 0cd01be0bff286aefc45a1a4f477c5a3e6c6184a | 2026-05-03 |
