@@ -45,7 +45,7 @@ jobs:
 
       - name: Warm registry cache and pull images
         run: |
-          python3 scripts/python/prewarm_docker_images_optimized.py --compose-file security-stack.compose.yml --profiles "${SECSTACK_PROFILES} monitor" --targets-file "The Shield/scanner/targets.txt"
+          python3 scripts/python/prewarm-registry-cache.py --compose-file security-stack.compose.yml --profiles "${SECSTACK_PROFILES} monitor" --targets-file "The Shield/scanner/targets.txt"
       - name: Create success tag
         run: |
           TAG_NAME="stable-image-tag-$(date -u +'%Y%m%d%H%M%S')"
