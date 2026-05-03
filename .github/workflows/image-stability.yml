@@ -1,0 +1,69 @@
+name: Image Stability and Availability
+
+on:
+  push:
+    branches: ["main"]
+  schedule:
+    - cron: '0 2 * * *' # Run daily at 02:00 UTC
+  workflow_dispatch:
+    inputs:
+      build_version:
+        description: 'Build version tag (e.g., v1, v2)'
+        required: true
+        default: 'v1'
+
+permissions:
+  contents: write
+
+jobs:
+  manage-images:
+    name: Manage Image Stability
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          # Add any dependencies if needed (none for now as we use subprocess)
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Harbor
+        uses: docker/login-action@v3
+        with:
+          registry: demo.goharbor.io
+          username: ${{ secrets.HARBORUSER }}
+          password: ${{ secrets.HARBORPW }}
+
+      - name: Run Image Stability Management
+        env:
+          BUILD_VERSION: ${{ github.event.inputs.build_version || 'v1' }}
+        run: |
+          python scripts/manage-image-stability.py --build-version "$BUILD_VERSION" --output-env stable-images.env
+
+      - name: Commit and Push Metadata
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add stable-images.env
+          if git diff --cached --quiet; then
+            echo "No changes to metadata"
+          else
+            git commit -m "chore: update stable image metadata [${{ github.event.inputs.build_version || 'v1' }}]"
+            git push
+          fi
+
+      - name: Create Release Tag
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          TAG_NAME="stable-${{ github.event.inputs.build_version || 'v1' }}-$(date +'%Y%m%d')"
+          git tag "$TAG_NAME"
+          git push origin "$TAG_NAME"
