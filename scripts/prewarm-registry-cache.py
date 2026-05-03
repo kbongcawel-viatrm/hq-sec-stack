@@ -1,12 +1,24 @@
 #!/usr/bin/env python3
-"""Prewarm Docker image caches, optionally through Harbor proxy cache projects."""
+"""Prewarm Docker image caches, optionally through Harbor proxy cache projects.
+
+Space optimizations included:
+- Optionally prune Docker image/build cache before pulls.
+- Skip images that already exist locally, unless forced.
+- Remove temporary Harbor proxy-cache tags after retagging to the original image name.
+- Optionally prune dangling images/build cache after pulls.
+
+Environment variables:
+- DOCKER_CACHE_PRUNE_BEFORE_PULL=true
+- DOCKER_CACHE_PRUNE_AFTER_PULL=true
+- DOCKER_CACHE_FORCE_PULL=true
+- HARBOR_CACHE_KEEP_PROXY_TAG=true
+"""
 
 from __future__ import annotations
 
 import argparse
 import os
 import subprocess
-import sys
 from pathlib import Path
 
 
@@ -51,12 +63,26 @@ def capture_command(cmd: list[str]) -> str:
     return proc.stdout
 
 
-def prune_docker_space() -> None:
+def prune_docker_space_before_pull() -> None:
     if not truthy(os.environ.get("DOCKER_CACHE_PRUNE_BEFORE_PULL"), default=False):
         return
-    print("Pruning unused Docker build cache and images before pulls")
-    run_command(["docker", "system", "prune", "-af", "--volumes"])
+
+    print("Pruning unused Docker images and build cache before pulls")
+    run_command(["docker", "image", "prune", "-af"])
     run_command(["docker", "builder", "prune", "-af"])
+
+
+def prune_docker_space_after_pull() -> None:
+    if not truthy(os.environ.get("DOCKER_CACHE_PRUNE_AFTER_PULL"), default=False):
+        return
+
+    print("Pruning dangling Docker images and build cache after pulls")
+    run_command(["docker", "image", "prune", "-f"])
+    run_command(["docker", "builder", "prune", "-af"])
+
+
+def image_exists(image: str) -> bool:
+    return run_command(["docker", "image", "inspect", image]) == 0
 
 
 def split_image_ref(image: str) -> tuple[str, str, str | None, str | None]:
@@ -158,8 +184,14 @@ def login_harbor_if_needed() -> None:
 
 
 def pull_and_tag(image: str) -> bool:
+    force_pull = truthy(os.environ.get("DOCKER_CACHE_FORCE_PULL"), default=False)
+    if not force_pull and image_exists(image):
+        print(f"Already present locally, skipping {image}")
+        return True
+
     harbor_ref = harbor_pull_ref(image)
     pull_ref = harbor_ref or image
+
     print(f"Pulling {image} from {pull_ref}")
     code = run_command_with_retry(["docker", "pull", pull_ref], attempts=3, delay_seconds=5)
     if code != 0:
@@ -170,6 +202,11 @@ def pull_and_tag(image: str) -> bool:
         tag_code = run_command_with_retry(["docker", "tag", pull_ref, image], attempts=2, delay_seconds=2)
         if tag_code != 0:
             return False
+
+        if not truthy(os.environ.get("HARBOR_CACHE_KEEP_PROXY_TAG"), default=False):
+            print(f"Removing temporary Harbor proxy-cache tag {pull_ref}")
+            run_command(["docker", "rmi", pull_ref])
+
     return True
 
 
@@ -180,19 +217,26 @@ def main() -> int:
     parser.add_argument("--targets-file", default=os.environ.get("CACHE_TARGETS_FILE", "The Shield/scanner/targets.txt"))
     args = parser.parse_args()
 
-    prune_docker_space()
+    prune_docker_space_before_pull()
     login_harbor_if_needed()
 
     profiles = [profile for profile in args.profiles.split() if profile]
-    images = load_images(args.compose_file, profiles, args.targets_file if Path(args.targets_file).exists() else None)
+    targets_file = args.targets_file if Path(args.targets_file).exists() else None
+    images = load_images(args.compose_file, profiles, targets_file)
 
     failures: list[str] = []
+    pulled_or_present = 0
+
     for image in images:
         if should_skip_image(image):
             print(f"Skipping non-pull image {image}")
             continue
-        if not pull_and_tag(image):
+        if pull_and_tag(image):
+            pulled_or_present += 1
+        else:
             failures.append(image)
+
+    prune_docker_space_after_pull()
 
     if failures:
         print("\nImage prewarm completed with failures:")
@@ -200,7 +244,7 @@ def main() -> int:
             print(f"- {image}")
         return 1
 
-    print(f"Prewarmed {len(images)} images successfully.")
+    print(f"Prewarmed {pulled_or_present} images successfully.")
     return 0
 
 
