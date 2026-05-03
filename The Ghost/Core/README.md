@@ -8,8 +8,8 @@ While the other pillars collect, detect, protect, and respond, **The Ghost under
 
 ## Services
 
-- `ollama` — Local LLM runtime. Hosts local open-weight models on the internal `secnet` network.
-- `ollama-model-pull` — One-shot initializer that pulls the configured local models on first boot.
+- `ghost` — Local LLM runtime. Hosts local open-weight models on the internal `secnet` network.
+- `ghost-model-pull` — One-shot initializer that pulls the configured local models on first boot.
 - `ghost-assessor` — The active reasoning engine (The Soul). Ingests log evidence from all pillars and produces structured security assessments and directives.
 
 ## Pillar Responsibilities & Governance
@@ -50,7 +50,7 @@ The Ghost writes two distinct report trees (accessible via **The Hands** dashboa
 
 ## Swapping the Ghost's Brain (Local vs. Cloud)
 
-The Ghost can inhabit various models depending on your needs. For the ultimate analysis performance, you can use **ChatGPT (GPT-4 Turbo)**. For complete privacy and offline operation, you can use local models via **Ollama**.
+The Ghost can inhabit various models depending on your needs. For the ultimate analysis performance, you can use **ChatGPT (GPT-4 Turbo)**. For complete privacy and offline operation, you can use local models via **The Ghost runtime**.
 
 ### 1. Using ChatGPT (Highest Performance)
 To use ChatGPT as the Ghost's engine, set your API key and model in `.env`:
@@ -62,7 +62,7 @@ OPENAI_API_KEY=sk-your-key-here
 *The Ghost will automatically detect the 'gpt' prefix and use the OpenAI API.*
 
 ### 2. Using Local Models (Privacy/Offline)
-If no `OPENAI_API_KEY` is provided, or the model name doesn't start with `gpt`, the Ghost uses local Ollama. You can pre-pull multiple local models:
+If no `OPENAI_API_KEY` is provided, or the model name doesn't start with `gpt`, the Ghost uses the local runtime. You can pre-pull multiple local models:
 ```bash
 # Pre-pull local brains
 GHOST_MODELS_TO_PULL="llama3.1 gemma2 phi3"
@@ -77,14 +77,14 @@ Key environment variables (set in `.env`):
 
 | Variable | Default | Description |
 |---|---|---|
-| `GHOST_MODEL` | `gpt-4-turbo` | **Universal Selector.** Active model used by the Ghost. Handles local Ollama models OR cloud models (ChatGPT) if `OPENAI_API_KEY` is set and model starts with `gpt-`. |
-| `OPENAI_API_KEY` | - | Required for ChatGPT models. If set, overrides Ollama for `gpt-*` models. |
+| `GHOST_MODEL` | `gpt-4-turbo` | **Universal Selector.** Active model used by the Ghost. Handles local Ghost runtime models OR cloud models (ChatGPT) if `OPENAI_API_KEY` is set and model starts with `gpt-`. |
+| `OPENAI_API_KEY` | - | Required for ChatGPT models. If set, overrides the local runtime for `gpt-*` models. |
 | `GHOST_MODELS_TO_PULL` | `llama3.2` | Space-separated list of local models to pre-load on startup. |
 | `GHOST_CRON` | `0 2 * * *` | Schedule for recurring analysis (daily at 02:00 UTC) |
 | `GHOST_RUN_ON_STARTUP` | `true` | Run an analysis immediately on container start |
 | `GHOST_MAX_LOG_LINES` | `2500` | Max log lines sampled per analysis run |
 | `GHOST_CONTEXT_CHARS` | `24000` | Max characters of evidence sent to the LLM |
-| `GHOST_LOCAL_API` | `http://ollama:11434` | Internal URL for the local reasoning engine (e.g. Ollama). |
+| `GHOST_LOCAL_API` | `http://ghost:11434` | Internal URL for the local reasoning engine. |
 
 ## Profile
 

@@ -9,7 +9,7 @@ Path: `The Brain/`
 | Folder | Service | Role |
 | --- | --- | --- |
 | `The Brain/Wazuh` | Wazuh | Alerting, endpoint event intake, dashboard/index integration |
-| `The Brain/Ollama` | Ollama | Local LLM assessment, report generation, attack-pattern reasoning |
+| `The Ghost/Core` | The Ghost | Local LLM assessment, report generation, attack-pattern reasoning |
 | `The Brain/OSSEC` | OSSEC | OSSEC artifacts and host intrusion detection support |
 
 ## 2. Network Monitoring: The Eyes
@@ -63,4 +63,4 @@ Path: `The Hands/`
 | `The Hands/reports` | Reports | Report dashboard and generated report data |
 | `The Hands/Fluent Bit` | Fluent Bit pointer | Stack-wide log forwarding support role |
 | `The Hands/backup` | Backup | Persistent Docker volume backup and restore scripts |
-| `The Hands/log assessor` | Legacy assessment scripts | Archived local rule summary path; Ollama now owns LLM assessment |
+| `The Hands/log assessor` | Legacy assessment scripts | Archived local rule summary path; The Ghost now owns LLM assessment |

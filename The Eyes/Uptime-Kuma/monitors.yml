@@ -68,24 +68,24 @@ monitors:
     category: Support Services
     endpoint: container:uptime-kuma-sync
 
-  - name: Ollama API
+  - name: Ghost API
     type: http
-    url: http://ollama.hq-sec.local/api/tags
+    url: http://ghost.hq-sec.local/api/tags
     category: Support Services
-    fqdn: ollama.hq-sec.local
-    endpoint: http://ollama:11434/api/tags
+    fqdn: ghost.hq-sec.local
+    endpoint: http://ghost:11434/api/tags
 
-  - name: Ollama Container
+  - name: Ghost Container
     type: http
-    url: http://container-health-exporter:8080/container/ollama
+    url: http://container-health-exporter:8080/container/ghost
     category: Support Services
-    endpoint: container:ollama
+    endpoint: container:ghost
 
-  - name: Ollama Model Pull Completed
+  - name: Ghost Model Pull Completed
     type: http
-    url: http://container-health-exporter:8080/container/ollama-model-pull?mode=completed
+    url: http://container-health-exporter:8080/container/ghost-model-pull?mode=completed
     category: Support Services
-    endpoint: container:ollama-model-pull
+    endpoint: container:ghost-model-pull
 
   - name: Vault Health
     type: http
@@ -477,11 +477,11 @@ monitors:
     category: Support Services
     endpoint: container:log-forwarder
 
-  - name: Ollama Log Assessor
+  - name: Ghost Log Assessor
     type: http
-    url: http://container-health-exporter:8080/container/ollama-assessor
+    url: http://container-health-exporter:8080/container/ghost-assessor
     category: Support Services
-    endpoint: container:ollama-assessor
+    endpoint: container:ghost-assessor
 
   - name: Volume Backup
     type: http

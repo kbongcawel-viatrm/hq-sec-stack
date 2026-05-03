@@ -281,7 +281,7 @@ def fallback_assessment(evidence: dict, error: Exception) -> str:
     return "\n".join([
         f"# Ghost Assessment Fallback — {utc_today()}",
         "",
-        f"Ollama was unavailable: `{error}`",
+        f"The Ghost runtime was unavailable: `{error}`",
         "",
         f"Fallback risk: **{risk}**",
         "",
@@ -434,8 +434,8 @@ def run_once():
                 resp = j.loads(r.read().decode())
                 markdown = resp["choices"][0]["message"]["content"]
         else:
-            # Local Engine path (e.g. Ollama)
-            base = _env("GHOST_LOCAL_API", "http://ollama:11434").rstrip("/")
+            # Local Engine path (the Ghost runtime alias)
+            base = _env("GHOST_LOCAL_API", "http://ghost:11434").rstrip("/")
             payload = {
                 "model":   model,
                 "prompt":  prompt,

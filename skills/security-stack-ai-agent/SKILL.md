@@ -26,7 +26,7 @@ Use service skills as focused runbooks:
 - `$backup-agent` for persistent Docker volume backup, integrity checks, and restore planning.
 - `$container-vulnerability-agent` for Trivy scan reports and image upgrade triage.
 - `$log-observer-agent` for Graylog routing and the report dashboard.
-- `$ollama-agent` for local LLM log assessment, reports, attack-pattern analysis, hardening recommendations, and response planning.
+- `$ghost-agent` for local Ghost log assessment, reports, attack-pattern analysis, hardening recommendations, and response planning.
 - `$uptime-agent` for Uptime Kuma service availability monitoring.
 - Use Vault and the repo README for cross-service secrets and monthly rotation.
 

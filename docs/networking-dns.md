@@ -32,7 +32,7 @@ A Docker bridge network cannot use `10.77.0.80/32` as the whole subnet for this 
 | `greenbone.hq-sec.local` | Greenbone Security Assistant |
 | `vault.hq-sec.local` | Vault UI/API |
 | `uptime.hq-sec.local` | Uptime Kuma |
-| `ollama.hq-sec.local` | Ollama local LLM API |
+| `ghost.hq-sec.local` | The Ghost local LLM API |
 | `reports.hq-sec.local` | Reports dashboard |
 
 ## Linux Host Resolver

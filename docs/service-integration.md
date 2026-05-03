@@ -11,7 +11,7 @@ This stack is a Linux Docker Engine lab for SOC telemetry, incident response, an
 | `secrets` | Vault and monthly secret rotator | Vault `http://localhost:8200`, `vault.hq-sec.local` |
 | `ops` | Backup and vulnerability observation | Volume archives in `./The Hands/backups`, Trivy reports in `./The Hands/reports/data/container-vulnerabilities` |
 | `monitor` | Uptime monitoring | Uptime Kuma `http://localhost:3002`, `uptime.hq-sec.local`; desired monitors in `The Eyes/Uptime-Kuma/monitors.yml` |
-| `llm` | Local LLM assessment and report generation | Ollama `http://localhost:11434`, `ollama.hq-sec.local`; reports in `./The Hands/reports/data/log-assessments` |
+| `llm` | Local LLM assessment and report generation | The Ghost `http://localhost:11434`, `ghost.hq-sec.local`; reports in `./The Hands/reports/data/log-assessments` |
 | `network` | Suricata, Zeek | Host-network capture on `${SENSOR_INTERFACE}`; logs in `suricata-logs` and `zeek-logs` volumes |
 | `ir` | TheHive, Shuffle, Velociraptor, Ansible | TheHive `http://localhost:9001`, Shuffle `http://localhost:3001` and API `5001`, Velociraptor GUI `http://localhost:8889`, frontend `8000` |
 | `vuln` | Osquery, Greenbone Community services | Greenbone Security Assistant `https://localhost:9443` or redirect port `9392`, osquery interactive shell |
@@ -34,7 +34,7 @@ Vulnerability context comes from Greenbone scans and osquery checks. Greenbone f
 
 Operational resilience comes from persistent named volumes plus the `volume-backup` service. `container-vuln-scanner` scans the configured container images with Trivy and writes reports for the observing AI agent to triage.
 
-Ollama provides the local LLM reasoning layer. `ollama-assessor` queries Graylog for recent logs, samples local security evidence, sends the context to `ollama:11434/api/generate`, and writes analyst-facing Markdown/JSON reports. The model is stateless unless future RAG context is explicitly added.
+The Ghost provides the local LLM reasoning layer. `ghost-assessor` queries Graylog for recent logs, samples local security evidence, sends the context to `ghost:11434/api/generate`, and writes analyst-facing Markdown/JSON reports. The model is stateless unless future RAG context is explicitly added.
 
 IPFire and host firewall artifacts are currently disabled under `.disabled-services/`. Uptime Kuma monitors availability of the exposed service FQDNs, while Suricata and Zeek provide network visibility when the `network` profile has a useful capture interface.
 
