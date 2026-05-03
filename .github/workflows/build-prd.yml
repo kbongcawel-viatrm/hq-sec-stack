@@ -7,6 +7,11 @@ on:
         description: "Production artifact tag suffix, for example v1.0"
         required: true
         default: "v1.0"
+      profiles:
+        description: "Optional compose profiles"
+        required: false
+        default: ""
+        type: string
   push:
     tags:
       - "v*"
@@ -29,7 +34,13 @@ jobs:
   build-prd-artifacts:
     name: Build production image artifacts
     runs-on: ubuntu-latest
+    environment: prod
     timeout-minutes: 120
+
+    env:
+      SECSTACK_PROFILES: ${{ inputs.profiles || vars.PROD_SECSTACK_PROFILES || 'all' }}
+      DOCKER_BUILDKIT: "1"
+      COMPOSE_DOCKER_CLI_BUILD: "1"
 
     steps:
       - name: Checkout repository
@@ -50,19 +61,47 @@ jobs:
 
           echo "DOCKER_ARTIFACT_TAG=$ARTIFACT_TAG" >> "$GITHUB_ENV"
 
+      - name: Create environment file
+        shell: bash
+        env:
+          CADDY_CROWDSEC_API_KEY: ${{ secrets.CADDY_CROWDSEC_API_KEY }}
+        run: |
+          cp .env.example .env
+          tmp_env="$(mktemp)"
+          while IFS= read -r line; do
+            case "$line" in
+              CADDY_CROWDSEC_API_KEY=*)
+                printf 'CADDY_CROWDSEC_API_KEY=%s\n' "$CADDY_CROWDSEC_API_KEY"
+                ;;
+              *)
+                printf '%s\n' "$line"
+                ;;
+            esac
+          done < .env > "$tmp_env"
+          mv "$tmp_env" .env
+
       - name: Login to Harbor cache
-        if: ${{ secrets.HARBOR_CACHE_HOST != '' && secrets.HARBOR_CACHE_USERNAME != '' && secrets.HARBOR_CACHE_PASSWORD != '' }}
+        if: ${{ vars.HARBOR_CACHE_HOST != '' && secrets.HARBOR_CACHE_USERNAME != '' && secrets.HARBOR_CACHE_PASSWORD != '' }}
         shell: bash
         run: |
-          echo "${{ secrets.HARBOR_CACHE_PASSWORD }}" | docker login "${{ secrets.HARBOR_CACHE_HOST }}" \
+          echo "${{ secrets.HARBOR_CACHE_PASSWORD }}" | docker login "${{ vars.HARBOR_CACHE_HOST }}" \
             -u "${{ secrets.HARBOR_CACHE_USERNAME }}" \
             --password-stdin
+
+      - name: Validate shell scripts
+        shell: bash
+        run: |
+          bash -n scripts/start-stack.sh
+          bash -n scripts/killswitch.sh
+          bash -n "The Hands/backup/scripts/backup-volumes.sh"
+          bash -n "The Hands/backup/scripts/restore-volume.sh"
+          bash -n "The Shield/scanner/scripts/scan-containers.sh"
+          bash -n "The Shield/vault/scripts/monthly-rotate.sh"
 
       - name: Prewarm registry cache and create artifacts
         shell: bash
         env:
-          SECSTACK_PROFILES: ${{ vars.SECSTACK_PROFILES || 'all' }}
-          HARBOR_CACHE_HOST: ${{ secrets.HARBOR_CACHE_HOST }}
+          HARBOR_CACHE_HOST: ${{ vars.HARBOR_CACHE_HOST }}
           HARBOR_CACHE_USERNAME: ${{ secrets.HARBOR_CACHE_USERNAME }}
           HARBOR_CACHE_PASSWORD: ${{ secrets.HARBOR_CACHE_PASSWORD }}
           HARBOR_CACHE_PROJECT_DOCKERIO: ${{ vars.HARBOR_CACHE_PROJECT_DOCKERIO }}
@@ -75,13 +114,43 @@ jobs:
             --artifact-tag "$DOCKER_ARTIFACT_TAG" \
             --artifact-dir "$DOCKER_ARTIFACT_DIR" \
             --compose-file "$COMPOSE_FILE" \
-            --profiles "${SECSTACK_PROFILES} monitor" \
+            --profiles "$SECSTACK_PROFILES" \
             --targets-file "$CACHE_TARGETS_FILE"
 
       - name: Upload production artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: docker-image-artifacts-prd-${{ github.run_number }}
+          name: docker-image-artifacts-prd-${{ github.run_id }}
           path: artifact/*.tar.gz
           if-no-files-found: error
           retention-days: 30
+
+      - name: Pull production artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-image-artifacts-prd-${{ github.run_id }}
+          path: downloaded-artifacts
+
+      - name: Load production artifacts
+        shell: bash
+        run: |
+          set -eu
+          for artifact in downloaded-artifacts/*.tar.gz; do
+            [ -e "$artifact" ] || {
+              echo "No Docker artifacts found"
+              exit 1
+            }
+            echo "Loading Docker artifact: $artifact"
+            gzip -dc "$artifact" | docker load
+          done
+
+      - name: Docker compose build from loaded artifacts
+        shell: bash
+        run: |
+          set -eu
+          set --
+          for profile in ${SECSTACK_PROFILES}; do
+            set -- "$@" --profile "$profile"
+          done
+          docker compose --env-file .env -f "$COMPOSE_FILE" "$@" config
+          docker compose --env-file .env -f "$COMPOSE_FILE" "$@" build --pull never
