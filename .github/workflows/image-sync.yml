@@ -120,7 +120,7 @@ jobs:
 
       - name: Prewarm Docker image artifacts
         env:
-          DOCKER_ARTIFACT_DIR: /root/artifacts/${{ matrix.batch.name }}
+          DOCKER_ARTIFACT_DIR: /${{ runner.temp }}/artifacts/${{ matrix.batch.name }}
           DOCKER_CACHE_FORCE_PULL: "true"
           DOCKER_CACHE_PRUNE_AFTER_EACH_IMAGE: "true"
           DOCKER_CACHE_PRUNE_AFTER_PULL: "true"
@@ -128,14 +128,14 @@ jobs:
         run: |
           python3 scripts/prewarm-registry-cache-final.py \
             --targets-file ".cache-targets/${{ matrix.batch.name }}.txt" \
-            --artifact-dir "/root/artifacts/${{ matrix.batch.name }}"
+            --artifact-dir "/${{ runner.temp }}/artifacts/${{ matrix.batch.name }}"
 
       - name: Show generated artifacts
         if: always()
         run: |
           find /root/artifacts -type f -name "*.tar.gz" -print || true
-          du -sh /root/artifacts || true
-          df -h /root/ || true
+          du -sh /${{ runner.temp }}/artifacts || true
+          df -h /${{ runner.temp }}/ || true
           docker system df || true
 
       - name: Upload Docker image artifacts
@@ -143,17 +143,17 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: docker-images-${{ matrix.batch.name }}
-          path: /root/artifacts/${{ matrix.batch.name }}/*.tar.gz
+          path: /${{ runner.temp }}/artifacts/${{ matrix.batch.name }}/*.tar.gz
           if-no-files-found: error
           retention-days: 7
 
       - name: Final cleanup
         if: always()
         run: |
-          rm -rf /root/artifacts .cache-targets
+          rm -rf /${{ runner.temp }}/artifacts .cache-targets
           docker container prune -f || true
           docker image prune -af || true
           docker volume prune -f || true
           docker builder prune -af || true
-          df -h /root || true
+          df -h /${{ runner.temp }} || true
           df -h /var/lib/docker || true
