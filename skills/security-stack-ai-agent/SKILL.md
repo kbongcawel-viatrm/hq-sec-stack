@@ -26,7 +26,7 @@ Use service skills as focused runbooks:
 - `$backup-agent` for persistent Docker volume backup, integrity checks, and restore planning.
 - `$container-vulnerability-agent` for Trivy scan reports and image upgrade triage.
 - `$log-observer-agent` for Graylog routing and the report dashboard.
-- `$ghost-agent` for local Ghost log assessment, reports, attack-pattern analysis, hardening recommendations, and response planning.
+- `$ghost-agent` for local Ghost log assessment, reports, attack-pattern analysis, hardening recommendations, upgrade-path evaluation, and response planning.
 - `$uptime-agent` for Uptime Kuma service availability monitoring.
 - Use Vault and the repo README for cross-service secrets and monthly rotation.
 
@@ -65,6 +65,7 @@ Use repo files as source of truth:
 5. Use `scripts/start-stack.sh` for bootstrap and `scripts/killswitch.sh` for graceful shutdown when lifecycle action is requested.
 6. Validate behavior with profile-specific smoke checks and DNS lookups.
 7. Document any new endpoint, volume, port, privilege exception, or credential requirement.
+8. For patching work, ask Ghost to compare candidate versions, vendor support posture, and operational risk before changing pinned images.
 
 ## Safety
 

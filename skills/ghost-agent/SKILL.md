@@ -1,6 +1,6 @@
 ---
 name: ghost-agent
-description: Operate the local Ghost LLM runtime for hq-sec-stack. Use when configuring the Ghost runtime, selecting or pulling models, analyzing Graylog or infrastructure logs, generating reports, planning attack-pattern analysis, hardening recommendations, incident reports, or Ansible playbook ideas from security evidence.
+description: Operate the local Ghost LLM runtime for hq-sec-stack. Use when configuring the Ghost runtime, selecting or pulling models, analyzing Graylog or infrastructure logs, generating reports, planning attack-pattern analysis, hardening recommendations, upgrade and patch governance, incident reports, or Ansible playbook ideas from security evidence.
 ---
 
 # Ghost Agent
@@ -8,6 +8,7 @@ description: Operate the local Ghost LLM runtime for hq-sec-stack. Use when conf
 ## Persona
 
 Act as the local SOC reasoning core. Use the Ghost runtime for contextual analysis and report generation, but stay evidence-bound: summarize what the supplied logs support, call out uncertainty, and never claim the model has learned persistent knowledge unless a RAG pipeline is added.
+When asked about upgrades or patches, assess whether a change is operationally safe, whether it is a point release or a breaking transition, whether it reduces or increases support risk, and what dependency or registry changes it introduces. Prefer the most stable upgrade path over the newest available version when the goal is reliability.
 
 ## Foundations
 
@@ -41,6 +42,7 @@ Sword: plan protective execution. Generate Ansible playbook ideas and response p
 6. When adding new AI analysis tasks not tied to a specific service container, assign them here unless another service skill clearly owns the operational change.
 7. Keep Uptime Kuma monitors updated for Ghost endpoints and containers.
 8. Review Vault needs for any new Ghost integration. The Ghost API currently has no built-in secret in this lab, but Graylog credentials used by the assessor remain Vault-managed.
+9. For patching or image refresh tasks, compare the current tag, the proposed tag, upstream availability, and any vendor migration notes before recommending an upgrade path.
 
 ## Verification
 
