@@ -16,6 +16,7 @@ jobs:
       SECSTACK_PROFILES: ${{ vars.DEV_SECSTACK_PROFILES || 'all' }}
       BUILDKIT_CACHE_FROM: type=gha
       BUILDKIT_CACHE_TO: type=gha,mode=max
+      DOCKER_CACHE_PRUNE_BEFORE_PULL: "true"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -60,49 +61,19 @@ jobs:
           bash -n "The Shield/scanner/scripts/scan-containers.sh"
           bash -n "The Shield/vault/scripts/monthly-rotate.sh"
 
-      - name: Pull critical profile images
-        id: pull_images
+      - name: Warm registry cache and pull images
         run: |
-          set +e
-          pull_log="$(mktemp)"
-          failed=0
-          services="$(docker compose -f security-stack.compose.yml --profile dns --profile secrets --profile brain config --services)"
-          for service in $services; do
-            echo "Pulling ${service}"
-            service_log="$(mktemp)"
-            if ! docker compose -f security-stack.compose.yml --profile dns --profile secrets --profile brain pull --ignore-buildable --ignore-pull-failures "$service" >"$service_log" 2>&1; then
-              failed=1
-            fi
-            cat "$service_log" | tee -a "$pull_log"
-          done
-          if grep -Eqi '(pull access denied|manifest unknown|not found|denied)' "$pull_log"; then
-            failed=1
-          fi
-          if [ "$failed" -ne 0 ]; then
-            echo "pull_failed=true" >> "$GITHUB_OUTPUT"
-            echo "pull_log=$pull_log" >> "$GITHUB_OUTPUT"
-          else
-            echo "pull_failed=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Report missing image repositories
-        if: steps.pull_images.outputs.pull_failed == 'true'
-        run: |
-          echo "One or more image repositories were denied or missing during pull."
-          echo "Review the Pull critical profile images step for the failing image names."
-          exit 1
+          python3 scripts/prewarm-registry-cache.py --compose-file security-stack.compose.yml --profiles "${SECSTACK_PROFILES} monitor" --targets-file "The Shield/scanner/targets.txt"
 
       - name: Start compose stack for monitor validation
-        if: steps.pull_images.outputs.pull_failed != 'true'
         run: |
           set -eu
           set --
           for profile in ${SECSTACK_PROFILES} monitor; do
             set -- "$@" --profile "$profile"
           done
-          docker compose -f security-stack.compose.yml "$@" up -d --build --remove-orphans
+          docker compose -f security-stack.compose.yml "$@" up -d --build --pull never --remove-orphans
 
       - name: Validate Uptime Kuma targets
-        if: steps.pull_images.outputs.pull_failed != 'true'
         run: |
           docker compose -f security-stack.compose.yml --profile monitor run --rm --no-deps --entrypoint python uptime-kuma-sync /uptime-kuma/scripts/validate-monitors.py

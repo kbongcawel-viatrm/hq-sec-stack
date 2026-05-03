@@ -1,0 +1,41 @@
+# Registry Cache
+
+This stack can warm Docker images through Harbor proxy cache projects before it starts services.
+
+## What It Does
+
+The helper script at [`scripts/prewarm-registry-cache.py`](../scripts/prewarm-registry-cache.py) does three things:
+
+1. Optionally prunes unused Docker images and builder cache.
+2. Prunes unused Docker system resources before warmup when `DOCKER_CACHE_PRUNE_BEFORE_PULL=true`.
+2. Pulls the images referenced by `security-stack.compose.yml` plus `The Shield/scanner/targets.txt`.
+3. Pulls through Harbor proxy cache projects when Harbor cache variables are configured, then retags the image locally under the original name.
+
+The workflows and `scripts/start-stack.sh` use `--pull never` after prewarming so Docker does not go back to the upstream registries during startup.
+
+## Harbor Setup
+
+Harbor proxy cache is configured per upstream registry. For this repository, the likely projects are:
+
+1. A Docker Hub proxy cache project for images like `caddy`, `python`, `osquery`, `velociraptor`, `vault`, `graylog`, and `mongo`.
+2. A GHCR proxy cache project for Shuffle images.
+3. A Greenbone registry proxy cache project for the Community Greenbone images.
+
+You will need Harbor admin or project-admin access to create the proxy cache projects and registry endpoints. I also need the project names you want to use, or admin credentials if you want me to wire the exact settings in the repo.
+
+## Required Environment Variables
+
+Set these in `.env` or in GitHub Actions variables/secrets as appropriate:
+
+- `HARBOR_CACHE_HOST`
+- `HARBOR_CACHE_USERNAME`
+- `HARBOR_CACHE_PASSWORD`
+- `HARBOR_CACHE_PROJECT_DOCKERHUB`
+- `HARBOR_CACHE_PROJECT_GHCR`
+- `HARBOR_CACHE_PROJECT_GREENBONE`
+- `HARBOR_CACHE_PROJECT_DEFAULT`
+- `DOCKER_CACHE_PRUNE_BEFORE_PULL=true`
+
+## Notes
+
+Proxy cache projects are not push targets. They are pull-through caches. To use them, pull from the Harbor project path and then retag the image locally under the original image name.

@@ -1,6 +1,7 @@
 # Keep this list aligned with security-stack.compose.yml defaults.
 coredns/coredns:1.11.3
 caddy:2.8.4-alpine
+caddy:builder-alpine
 louislam/uptime-kuma:1.23.16
 python:3.12-alpine
 ollama/ollama:0.20.7
