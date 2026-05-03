@@ -1,6 +1,13 @@
 name: PRD Deploy From Docker Image Artifacts
 
-on:
+on: 
+  push:
+    branches: 
+      - main
+    paths:
+      - '**/*.yaml'
+      - '**/*.yml'
+   
   workflow_run:
     workflows: ["Prewarm Docker Image Artifacts"]
     types: [completed]
