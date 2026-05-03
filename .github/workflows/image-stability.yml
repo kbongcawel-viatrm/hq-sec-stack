@@ -69,11 +69,10 @@ jobs:
 
       - name: Pull images and compress
         run: |
-            python3 scripts/prewarm-registry-cache-final.py \
-            --compose-file security-stack.compose.yml \
-            --profiles "${SECSTACK_PROFILES} monitor" \
-            --targets-file "The Shield/scanner/targets.txt"
-
+              python3 scripts/prewarm-registry-cache-final.py \
+              --targets-file "The Shield/scanner/targets.txt" \
+              --targets-only
+              
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
