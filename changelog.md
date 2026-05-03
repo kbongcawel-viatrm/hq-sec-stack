@@ -2,6 +2,7 @@
 
 | Commit Message | Branch | Hash | Date |
 | --- | --- | --- | --- |
+| Add Ghost upgrade governance | dev | 5db714c | 2026-05-03 |
 | Wire Harbor cache into workflows | dev | 9fecd21 | 2026-05-03 |
 | Rename deploy workflow to prd | dev | 0fc5c40 | 2026-05-03 |
 | Stabilize greenbone scap prewarm | dev | c32042a | 2026-05-03 |
