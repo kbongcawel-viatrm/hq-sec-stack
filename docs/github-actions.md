@@ -3,7 +3,7 @@
 This repository uses `.github/workflows/build-deploy.yml` for validation and manual deployment.
 Pushes to `dev` use `.github/workflows/build-dev.yml` to run the same validation pipeline without the deploy job.
 The dev workflow uses the GitHub Actions environment `dev`; the main deploy job uses `prod`.
-The dev workflow also starts the compose stack and validates the Uptime Kuma target inventory against the internal Docker endpoints defined in `The Eyes/Uptime-Kuma/monitors.yml`. Its image warmup stage prunes unused Docker system resources first, skips local build outputs and builder-stage images, attempts every remaining service pull, and fails once at the end with a consolidated list of denied or missing repositories.
+The dev workflow also starts the compose stack and validates the Uptime Kuma target inventory against the internal Docker endpoints defined in `The Eyes/Uptime-Kuma/monitors.yml`. Its image warmup stage prunes unused Docker system resources first, skips local build outputs and builder-stage images, attempts every remaining service pull, and fails once at the end with a consolidated list of denied or missing repositories. The nmap and Wireshark scanners now share a single local build image, `hq-sec-stack-network-scanner`, to avoid duplicating warmup work.
 The dev workflow also exports BuildKit cache settings through `BUILDKIT_CACHE_FROM` and `BUILDKIT_CACHE_TO` so the local build contexts can reuse layers instead of redownloading them on every run.
 
 ## Required Repository Secrets

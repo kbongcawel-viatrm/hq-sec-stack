@@ -10,7 +10,7 @@ The helper script at [`scripts/prewarm-registry-cache.py`](../scripts/prewarm-re
 2. Prunes unused Docker system resources before warmup when `DOCKER_CACHE_PRUNE_BEFORE_PULL=true`.
 3. Pulls the images referenced by `security-stack.compose.yml` plus `The Shield/scanner/targets.txt`.
 4. Pulls through Harbor proxy cache projects when Harbor cache variables are configured, then retags the image locally under the original name.
-5. Skips local build outputs and builder-stage images such as `hq-sec/caddy-crowdsec`, `hq-sec-stack-nmap-scanner`, `hq-sec-stack-wireshark-scanner`, and `caddy:builder-alpine`.
+5. Skips local build outputs and builder-stage images such as `hq-sec/caddy-crowdsec`, `hq-sec-stack-network-scanner`, and `caddy:builder-alpine`.
 
 The workflows and `scripts/start-stack.sh` use `--pull never` after prewarming so Docker does not go back to the upstream registries during startup. BuildKit is enabled with `DOCKER_BUILDKIT=1` and `COMPOSE_DOCKER_CLI_BUILD=1` so `cache-from` and `cache-to` are actually consumed by Compose builds.
 
