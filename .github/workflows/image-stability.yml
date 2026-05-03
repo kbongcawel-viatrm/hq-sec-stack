@@ -14,7 +14,7 @@ jobs:
   validate:
     name: Validate Compose and Sync Images
     runs-on: ubuntu-latest
-    environment: dev
+    environment: development
 
     env:
       SECSTACK_PROFILES: ${{ vars.DEV_SECSTACK_PROFILES || 'all' }}
@@ -70,7 +70,6 @@ jobs:
       - name: Pull images and compress
         run: |
             python3 scripts/prewarm-registry-cache-final.py \
-            --artifact-tag "${DOCKER_ARTIFACT_TAG}" \
             --compose-file security-stack.compose.yml \
             --profiles "${SECSTACK_PROFILES} monitor" \
             --targets-file "The Shield/scanner/targets.txt"
@@ -85,18 +84,12 @@ jobs:
 
       - name: Create tag for the build
         run: |
-          echo "Generated tag: ${TAG_NAME}"
-
-          if git rev-parse "${TAG_NAME}" >/dev/null 2>&1; then
-            echo "Tag already exists, skipping"
-            exit 0
-          fi
+          echo "Generated tag: ${DOCKER_ARTIFACT_TAG}
 
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
 
-          git tag "${TAG_NAME}"
-          git push origin "${TAG_NAME}"
-
-          echo "Created tag: ${TAG_NAME}"
+          git tag "${DOCKER_ARTIFACT_TAG}"
+          git push origin "${DOCKER_ARTIFACT_TAG}"
+          echo "Created tag: $${DOCKER_ARTIFACT_TAG}"
 
