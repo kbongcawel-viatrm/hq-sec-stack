@@ -17,6 +17,8 @@ The service FQDNs all resolve to the single proxy address `10.77.0.80`. Treat th
 
 A Docker bridge network cannot use `10.77.0.80/32` as the whole subnet for this stack because `/32` contains only one usable address and this compose file runs many containers. The practical design is a small private subnet for container IPAM plus a single `/32` DNS target for human-facing service names.
 
+The monitor-only `fqdn-proxy.hq-sec.local` target used by Uptime Kuma is an internal health check name, not a user-facing DNS entry. It is intentionally omitted from the public-facing FQDN table below.
+
 ## FQDNs
 
 | FQDN | Route |

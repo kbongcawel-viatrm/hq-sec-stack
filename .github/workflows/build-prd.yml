@@ -1,4 +1,4 @@
-name: Build and Deploy Security Stack
+name: Build Security Stack (prd)
 
 on:
   push:
@@ -22,6 +22,17 @@ jobs:
     runs-on: ubuntu-latest
     env:
       SECSTACK_PROFILES: ${{ inputs.profiles || 'all' }}
+      DOCKER_BUILDKIT: "1"
+      COMPOSE_DOCKER_CLI_BUILD: "1"
+      DOCKER_CACHE_PRUNE_BEFORE_PULL: "true"
+      HARBOR_CACHE_HOST: ${{ vars.HARBOR_CACHE_HOST }}
+      HARBOR_CACHE_USERNAME: ${{ secrets.HARBOR_CACHE_USERNAME }}
+      HARBOR_CACHE_PASSWORD: ${{ secrets.HARBOR_CACHE_PASSWORD }}
+      HARBOR_CACHE_PROJECT_DOCKERIO: ${{ vars.HARBOR_CACHE_PROJECT_DOCKERIO }}
+      HARBOR_CACHE_PROJECT_DOCKERHUB: ${{ vars.HARBOR_CACHE_PROJECT_DOCKERHUB }}
+      HARBOR_CACHE_PROJECT_GHCR: ${{ vars.HARBOR_CACHE_PROJECT_GHCR }}
+      HARBOR_CACHE_PROJECT_GREENBONE: ${{ vars.HARBOR_CACHE_PROJECT_GREENBONE }}
+      HARBOR_CACHE_PROJECT_DEFAULT: ${{ vars.HARBOR_CACHE_PROJECT_DEFAULT }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -66,17 +77,28 @@ jobs:
           bash -n "The Shield/scanner/scripts/scan-containers.sh"
           bash -n "The Shield/vault/scripts/monthly-rotate.sh"
 
-      - name: Pull critical profile images
-        run: docker compose -f security-stack.compose.yml --profile dns --profile secrets --profile brain pull --ignore-buildable
+      - name: Warm registry cache and pull images
+        run: |
+          python3 scripts/python/prewarm-registry-cache.py --compose-file security-stack.compose.yml --profiles "dns secrets brain" --targets-file "The Shield/scanner/targets.txt"
 
   deploy:
     name: Deploy to Docker Host
     runs-on: ubuntu-latest
     needs: validate
     if: github.event_name == 'workflow_dispatch'
-    environment: production
+    environment: prod
     env:
-      SECSTACK_PROFILES: ${{ inputs.profiles || vars.SECSTACK_PROFILES || 'dns secrets brain ops' }}
+      SECSTACK_PROFILES: ${{ inputs.profiles || vars.PROD_SECSTACK_PROFILES || 'dns secrets brain ops' }}
+      DOCKER_BUILDKIT: "1"
+      COMPOSE_DOCKER_CLI_BUILD: "1"
+      HARBOR_CACHE_HOST: ${{ vars.HARBOR_CACHE_HOST }}
+      HARBOR_CACHE_USERNAME: ${{ secrets.HARBOR_CACHE_USERNAME }}
+      HARBOR_CACHE_PASSWORD: ${{ secrets.HARBOR_CACHE_PASSWORD }}
+      HARBOR_CACHE_PROJECT_DOCKERIO: ${{ vars.HARBOR_CACHE_PROJECT_DOCKERIO }}
+      HARBOR_CACHE_PROJECT_DOCKERHUB: ${{ vars.HARBOR_CACHE_PROJECT_DOCKERHUB }}
+      HARBOR_CACHE_PROJECT_GHCR: ${{ vars.HARBOR_CACHE_PROJECT_GHCR }}
+      HARBOR_CACHE_PROJECT_GREENBONE: ${{ vars.HARBOR_CACHE_PROJECT_GREENBONE }}
+      HARBOR_CACHE_PROJECT_DEFAULT: ${{ vars.HARBOR_CACHE_PROJECT_DEFAULT }}
     steps:
       - name: Validate deploy settings
         run: |
@@ -121,6 +143,6 @@ jobs:
               esac
             done < .env.example > "$tmp_env"
             mv "$tmp_env" .env
-            SECSTACK_PROFILES="${{ env.SECSTACK_PROFILES }}" sh scripts/start-stack.sh
+            DOCKER_CACHE_PRUNE_BEFORE_PULL=true SECSTACK_PROFILES="${{ env.SECSTACK_PROFILES }}" sh scripts/start-stack.sh
 
 

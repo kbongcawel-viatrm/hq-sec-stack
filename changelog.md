@@ -2,6 +2,28 @@
 
 | Commit Message | Branch | Hash | Date |
 | --- | --- | --- | --- |
+| Add Ghost upgrade governance | dev | 5db714c | 2026-05-03 |
+| Wire Harbor cache into workflows | dev | 9fecd21 | 2026-05-03 |
+| Rename deploy workflow to prd | dev | 0fc5c40 | 2026-05-03 |
+| Stabilize greenbone scap prewarm | dev | c32042a | 2026-05-03 |
+| Document local scanner Dockerfiles | dev | 0668693 | 2026-05-03 |
+| Use repo scanner Dockerfiles | dev | 8434c54 | 2026-05-03 |
+| Consolidate network scanner image | dev | ff65c40 | 2026-05-03 |
+| Reduce prewarm failures | dev | de9f733 | 2026-05-03 |
+| Add Harbor project mappings | dev | 341597f | 2026-05-03 |
+| Document Harbor proxy cache endpoints | dev | a5ba376fc7348402fc859240b5f82ddf55a38680 | 2026-05-03 |
+| Enable BuildKit cache usage | dev | 4a1849dccc26104b87a25218b14c42a1d2931d2a | 2026-05-03 |
+| Add Docker pruning and Harbor cache prewarm | dev | bd4cf281dbd26b056cc5d76bb1ac528090e9984b | 2026-05-03 |
+| Aggregate pull failures and bump Velociraptor | dev | 0cd01be0bff286aefc45a1a4f477c5a3e6c6184a | 2026-05-03 |
+| Handle pull failures and bump osquery tag | dev | 35a952a67dce4b09d427cfcf9e29404d26256c16 | 2026-05-03 |
+| Bump osquery image version | dev | 6c5ca9a2096dce5196f0d21a30227f75bbcf5673 | 2026-05-03 |
+| Add BuildKit cache settings | dev | c300c10ed2fb9c45dac9a1884ddddac5a52d2701 | 2026-05-03 |
+| Ignore pull failures in dev workflow | dev | 94252e883aa0009cd1c9b1fb2d8108fc0876e7d0 | 2026-05-03 |
+| Split Shuffle into public GHCR services | dev | 19240ff1ecd8e475577898bebb356db5e5173fbd | 2026-05-03 |
+| Add dev monitor validation stage | dev | 7465ab7bd17ae4fc20d4726f2ea77c000534a1f7 | 2026-05-03 |
+| Split dev and prod workflow environments | dev | 55d67dd43bcf7ba5e202889916a761c7b5626bc7 | 2026-05-03 |
+| Add dev branch validation workflow | dev | 2d21ee0b64c2fa5764c14930b4d81f8cae196007 | 2026-05-03 |
+| Enable internal HTTPS for the FQDN proxy | dev | a4dbdda394715498582a0522ac77fbffe5872dae | 2026-05-03 |
 | Inject Caddy secret into generated env files | dev | 2697361d2c966782b02ac15d2a6657eb2a06b8fe | 2026-05-03 |
 | Fix workflow validation run scalar | dev | 1c3b862789970f779c98fd99190fa3fc1af9907a | 2026-05-03 |
 | Set Caddy example key to GitHub secret expression | dev | 082cf32417acfbc4e7165f2e2ce21fd10d5a8d10 | 2026-05-03 |
