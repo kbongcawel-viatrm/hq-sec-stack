@@ -2,6 +2,7 @@
 
 | Commit Message | Branch | Hash | Date |
 | --- | --- | --- | --- |
+| Add dev branch validation workflow | dev | 2d21ee0b64c2fa5764c14930b4d81f8cae196007 | 2026-05-03 |
 | Enable internal HTTPS for the FQDN proxy | dev | a4dbdda394715498582a0522ac77fbffe5872dae | 2026-05-03 |
 | Inject Caddy secret into generated env files | dev | 2697361d2c966782b02ac15d2a6657eb2a06b8fe | 2026-05-03 |
 | Fix workflow validation run scalar | dev | 1c3b862789970f779c98fd99190fa3fc1af9907a | 2026-05-03 |
