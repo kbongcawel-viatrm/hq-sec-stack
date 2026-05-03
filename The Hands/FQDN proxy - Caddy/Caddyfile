@@ -57,12 +57,12 @@ thehive.hq-sec.local {
 
 shuffle.hq-sec.local {
     tls internal
-    reverse_proxy http://shuffle:3001
+    reverse_proxy http://shuffle-frontend:80
 }
 
 shuffle-api.hq-sec.local {
     tls internal
-    reverse_proxy http://shuffle:5001
+    reverse_proxy http://shuffle-backend:5001
 }
 
 velociraptor.hq-sec.local {

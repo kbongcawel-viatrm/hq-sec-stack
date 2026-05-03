@@ -245,20 +245,38 @@ monitors:
     url: http://shuffle.hq-sec.local
     category: Incident Response & Automation
     fqdn: shuffle.hq-sec.local
-    endpoint: http://shuffle:3001
+    endpoint: http://shuffle-frontend:80
 
-  - name: Shuffle Container
+  - name: Shuffle Frontend Container
     type: http
-    url: http://container-health-exporter:8080/container/shuffle
+    url: http://container-health-exporter:8080/container/shuffle-frontend
     category: Incident Response & Automation
-    endpoint: container:shuffle
+    endpoint: container:shuffle-frontend
 
   - name: Shuffle API
     type: http
     url: http://shuffle-api.hq-sec.local
     category: Incident Response & Automation
     fqdn: shuffle-api.hq-sec.local
-    endpoint: http://shuffle:5001
+    endpoint: http://shuffle-backend:5001
+
+  - name: Shuffle Backend Container
+    type: http
+    url: http://container-health-exporter:8080/container/shuffle-backend
+    category: Incident Response & Automation
+    endpoint: container:shuffle-backend
+
+  - name: Shuffle Orborus Container
+    type: http
+    url: http://container-health-exporter:8080/container/shuffle-orborus
+    category: Incident Response & Automation
+    endpoint: container:shuffle-orborus
+
+  - name: Shuffle OpenSearch Container
+    type: http
+    url: http://container-health-exporter:8080/container/shuffle-opensearch
+    category: Incident Response & Automation
+    endpoint: container:shuffle-opensearch
 
   - name: Velociraptor GUI
     type: http

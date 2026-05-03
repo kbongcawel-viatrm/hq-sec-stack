@@ -403,6 +403,8 @@ services:
       - zeek-logs:/sources/zeek-logs:ro
       - thehive-data:/sources/thehive-data:ro
       - shuffle-data:/sources/shuffle-data:ro
+      - shuffle-apps:/sources/shuffle-apps:ro
+      - shuffle-files:/sources/shuffle-files:ro
       - velociraptor-data:/sources/velociraptor-data:ro
       - crowdsec-data:/sources/crowdsec-data:ro
       - crowdsec-config:/sources/crowdsec-config:ro
@@ -707,31 +709,119 @@ services:
       start_period: 90s
     logging: *graylog-logging
 
-  shuffle:
-    image: ghcr.io/frikky/shuffle:${SHUFFLE_VERSION:-1.4.0}
-    container_name: shuffle
+  shuffle-opensearch:
+    image: opensearchproject/opensearch:3.2.0
+    container_name: shuffle-opensearch
     profiles: ["ir", "all"]
     environment:
-      SHUFFLE_APP_HOTLOAD_FOLDER: /shuffle/apps
-      SHUFFLE_FILE_LOCATION: /shuffle/files
-      SHUFFLE_OPENSEARCH_URL: "http://graylog-datanode:9200"
-      BASE_URL: "${SHUFFLE_BASE_URL:-http://localhost:3001}"
-      SHUFFLE_APP_SECRET: "${SHUFFLE_APP_SECRET:-CHANGE_ME_SHUFFLE_LAB_SECRET}"
-    ports:
-      - "${STACK_BIND_IP:-127.0.0.1}:${SHUFFLE_FRONTEND_PORT:-3001}:3001"
-      - "${STACK_BIND_IP:-127.0.0.1}:${SHUFFLE_BACKEND_PORT:-5001}:5001"
+      OPENSEARCH_JAVA_OPTS: "${SHUFFLE_OPENSEARCH_JAVA_OPTS:--Xms1g -Xmx1g}"
+      bootstrap.memory_lock: "true"
+      cluster.name: "shuffle-cluster"
+      node.name: "shuffle-opensearch"
+      node.store.allow_mmap: "false"
+      discovery.type: "single-node"
+      OPENSEARCH_INITIAL_ADMIN_PASSWORD: "${SHUFFLE_OPENSEARCH_PASSWORD:-CHANGE_ME_SHUFFLE_OPENSEARCH_SECRET}"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
     volumes:
-      - shuffle-data:/shuffle
-      - /var/run/docker.sock:/var/run/docker.sock
+      - shuffle-data:/usr/share/opensearch/data
     networks:
       - secnet
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:3001 >/dev/null || exit 1"]
+      test: ["CMD-SHELL", "curl -kfsS https://localhost:9200 >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 20
+      start_period: 90s
+    logging: *graylog-logging
+
+  shuffle-backend:
+    image: ghcr.io/shuffle/shuffle-backend:${SHUFFLE_VERSION:-latest}
+    container_name: shuffle-backend
+    profiles: ["ir", "all"]
+    environment:
+      SHUFFLE_APP_HOTLOAD_FOLDER: /shuffle-apps
+      SHUFFLE_FILE_LOCATION: /shuffle-files
+      SHUFFLE_OPENSEARCH_URL: "https://shuffle-opensearch:9200"
+      SHUFFLE_OPENSEARCH_USERNAME: "admin"
+      SHUFFLE_OPENSEARCH_PASSWORD: "${SHUFFLE_OPENSEARCH_PASSWORD:-CHANGE_ME_SHUFFLE_OPENSEARCH_SECRET}"
+      SHUFFLE_OPENSEARCH_SKIPSSL_VERIFY: "true"
+      SHUFFLE_APP_SECRET: "${SHUFFLE_APP_SECRET:-CHANGE_ME_SHUFFLE_LAB_SECRET}"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - shuffle-apps:/shuffle-apps
+      - shuffle-files:/shuffle-files
+    networks:
+      - secnet
+    restart: unless-stopped
+    depends_on:
+      shuffle-opensearch:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:5001 >/dev/null || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 20
       start_period: 120s
+    logging: *graylog-logging
+
+  shuffle-frontend:
+    image: ghcr.io/shuffle/shuffle-frontend:${SHUFFLE_VERSION:-latest}
+    container_name: shuffle-frontend
+    profiles: ["ir", "all"]
+    environment:
+      BACKEND_HOSTNAME: "${SHUFFLE_BACKEND_HOSTNAME:-shuffle-backend}"
+    ports:
+      - "${STACK_BIND_IP:-127.0.0.1}:${SHUFFLE_FRONTEND_PORT:-3001}:80"
+    networks:
+      - secnet
+    restart: unless-stopped
+    depends_on:
+      shuffle-backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 20
+      start_period: 120s
+    logging: *graylog-logging
+
+  shuffle-orborus:
+    image: ghcr.io/shuffle/shuffle-orborus:${SHUFFLE_VERSION:-latest}
+    container_name: shuffle-orborus
+    profiles: ["ir", "all"]
+    environment:
+      SHUFFLE_APP_SDK_TIMEOUT: "300"
+      ENVIRONMENT_NAME: "${SHUFFLE_ENVIRONMENT_NAME:-Shuffle}"
+      ORG_ID: "${SHUFFLE_ORG_ID:-Shuffle}"
+      BASE_URL: "http://${SHUFFLE_OUTER_HOSTNAME:-shuffle-backend}:5001"
+      DOCKER_API_VERSION: "${SHUFFLE_DOCKER_API_VERSION:-1.40}"
+      HTTP_PROXY: ""
+      HTTPS_PROXY: ""
+      SHUFFLE_PASS_WORKER_PROXY: "${SHUFFLE_PASS_WORKER_PROXY:-TRUE}"
+      SHUFFLE_PASS_APP_PROXY: "${SHUFFLE_PASS_APP_PROXY:-FALSE}"
+      SHUFFLE_STATS_DISABLED: "true"
+      SHUFFLE_LOGS_DISABLED: "true"
+      SHUFFLE_SWARM_CONFIG: "run"
+      CLEANUP: "false"
+      SHUFFLE_WORKER_IMAGE: "ghcr.io/shuffle/shuffle-worker:${SHUFFLE_VERSION:-latest}"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - secnet
+    restart: unless-stopped
+    depends_on:
+      shuffle-backend:
+        condition: service_healthy
+    security_opt:
+      - seccomp:unconfined
     logging: *graylog-logging
 
   velociraptor:
@@ -1249,6 +1339,8 @@ volumes:
   zeek-logs:
   thehive-data:
   shuffle-data:
+  shuffle-apps:
+  shuffle-files:
   velociraptor-data:
   greenbone-gpg-data:
   greenbone-scap-data:

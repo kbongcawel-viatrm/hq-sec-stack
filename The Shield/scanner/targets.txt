@@ -16,7 +16,11 @@ graylog/graylog:7.0.6
 jasonish/suricata:7.0
 zeek/zeek:lts
 strangebee/thehive:5
-ghcr.io/frikky/shuffle:1.4.0
+opensearchproject/opensearch:3.2.0
+ghcr.io/shuffle/shuffle-backend:latest
+ghcr.io/shuffle/shuffle-frontend:latest
+ghcr.io/shuffle/shuffle-orborus:latest
+ghcr.io/shuffle/shuffle-worker:latest
 xboarder56/velociraptor:0.74.2
 cytopia/ansible:2.16-tools
 osquery/osquery:5.15.0
