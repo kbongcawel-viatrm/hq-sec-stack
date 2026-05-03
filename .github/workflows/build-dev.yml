@@ -68,15 +68,21 @@ jobs:
             echo "Loading Docker artifact: $artifact"
             gzip -dc "$artifact" | docker load
           done
-
-      - name: Docker compose build from loaded artifacts
-        shell: bash
+          
+      - name: Prepare and start stack
         run: |
-          set -eu
-          set --
-          for profile in ${SECSTACK_PROFILES}; do
-            set -- "$@" --profile "$profile"
-          done
-          docker compose --env-file .env -f "$COMPOSE_FILE" "$@" config
-          docker compose --env-file .env -f "$COMPOSE_FILE" "$@" build --pull never
+          cp .env.example .env
+          sh scripts/start-stack.sh
+  
+     # - name: Docker compose build from loaded artifacts
+     #   shell: bash
+     #   run: |
+     #     set -eu
+     #     set --
+     #     for profile in ${SECSTACK_PROFILES}; do
+     #       set -- "$@" --profile "$profile"
+     #     done
+     #     docker compose --env-file .env -f "$COMPOSE_FILE" "$@" config
+     #     docker compose --env-file .env -f "$COMPOSE_FILE" "$@" build --pull never
+     
       
