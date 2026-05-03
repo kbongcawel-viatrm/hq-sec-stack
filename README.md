@@ -1,13 +1,6 @@
 <img width="570" height="210" alt="glowing_aura_banner_1900x700_10mb" src="https://github.com/user-attachments/assets/5b8ceadd-6fc3-48f7-a1db-8b7c8b131332" />
 
-
-```bash
-The Ghost    - uses "The Eyes" services to read and understand.
-             - uses "The Brains" services to analyze and make decision.
-             - hardens "The Shield" for resilience.
-             - executes with "The Sword".
-             - uses "The Hands" for supporting day to day battle.
-```
+> *"The soul behind the body parts. Pulling the strings. Making everyone better."*
 
 # HQ Security Stack
 
