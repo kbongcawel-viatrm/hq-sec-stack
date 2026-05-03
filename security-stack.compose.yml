@@ -895,7 +895,7 @@ services:
   ############################################################
 
   osquery:
-    image: osquery/osquery:${OSQUERY_VERSION:-5.15.0}
+    image: osquery/osquery:${OSQUERY_VERSION:-5.22.1}
     container_name: osquery
     profiles: ["vuln", "all"]
     user: "${SECSTACK_UID:-1000}:${SECSTACK_GID:-1000}"
