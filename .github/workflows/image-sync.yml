@@ -3,6 +3,7 @@ name: Prewarm Docker Image Artifacts
 on:
   push:
     branches: dev
+              main
   workflow_dispatch:
 
 permissions:
