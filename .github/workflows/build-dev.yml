@@ -49,7 +49,8 @@ jobs:
             set -- "$@" --profile "$profile"
           done
           docker compose --env-file .env -f "$COMPOSE_FILE" "$@" config
-- name: Pull production artifacts
+     
+      - name: Pull production artifacts
         uses: actions/download-artifact@v4
         with:
           name: docker-image-artifacts-prd-${{ github.run_id }}
