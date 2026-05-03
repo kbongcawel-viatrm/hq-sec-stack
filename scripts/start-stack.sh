@@ -123,7 +123,26 @@ main() {
 
   if [ "${PULL_IMAGES}" = "true" ]; then
     log "pulling images"
-    compose $(profile_args) pull --ignore-buildable
+    pull_failed=0
+    pull_log="$(mktemp)"
+    services="$(compose $(profile_args) config --services)"
+    for service in ${services}; do
+      log "pulling ${service}"
+      service_log="$(mktemp)"
+      if ! compose $(profile_args) pull --ignore-buildable --ignore-pull-failures "${service}" >"${service_log}" 2>&1; then
+        pull_failed=1
+      fi
+      cat "${service_log}" | tee -a "${pull_log}"
+    done
+
+    if grep -Eqi '(pull access denied|manifest unknown|not found|denied)' "${pull_log}"; then
+      pull_failed=1
+    fi
+
+    if [ "${pull_failed}" -ne 0 ]; then
+      log "one or more image pulls failed; review the pull log above"
+      exit 1
+    fi
   fi
 
   log "starting services"

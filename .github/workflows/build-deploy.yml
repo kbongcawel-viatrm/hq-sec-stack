@@ -67,7 +67,26 @@ jobs:
           bash -n "The Shield/vault/scripts/monthly-rotate.sh"
 
       - name: Pull critical profile images
-        run: docker compose -f security-stack.compose.yml --profile dns --profile secrets --profile brain pull --ignore-buildable
+        run: |
+          set +e
+          pull_log="$(mktemp)"
+          failed=0
+          services="$(docker compose -f security-stack.compose.yml --profile dns --profile secrets --profile brain config --services)"
+          for service in $services; do
+            echo "Pulling ${service}"
+            service_log="$(mktemp)"
+            if ! docker compose -f security-stack.compose.yml --profile dns --profile secrets --profile brain pull --ignore-buildable --ignore-pull-failures "$service" >"$service_log" 2>&1; then
+              failed=1
+            fi
+            cat "$service_log" | tee -a "$pull_log"
+          done
+          if grep -Eqi '(pull access denied|manifest unknown|not found|denied)' "$pull_log"; then
+            failed=1
+          fi
+          if [ "$failed" -ne 0 ]; then
+            echo "One or more image repositories were denied or missing during pull."
+            exit 1
+          fi
 
   deploy:
     name: Deploy to Docker Host

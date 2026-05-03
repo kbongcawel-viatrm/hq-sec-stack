@@ -64,17 +64,16 @@ jobs:
         id: pull_images
         run: |
           set +e
-          set -o pipefail
           pull_log="$(mktemp)"
           failed=0
           services="$(docker compose -f security-stack.compose.yml --profile dns --profile secrets --profile brain config --services)"
           for service in $services; do
             echo "Pulling ${service}"
-            docker compose -f security-stack.compose.yml --profile dns --profile secrets --profile brain pull --ignore-buildable --ignore-pull-failures "$service" 2>&1 | tee -a "$pull_log"
-            pull_status="${PIPESTATUS[0]}"
-            if [ "$pull_status" -ne 0 ]; then
+            service_log="$(mktemp)"
+            if ! docker compose -f security-stack.compose.yml --profile dns --profile secrets --profile brain pull --ignore-buildable --ignore-pull-failures "$service" >"$service_log" 2>&1; then
               failed=1
             fi
+            cat "$service_log" | tee -a "$pull_log"
           done
           if grep -Eqi '(pull access denied|manifest unknown|not found|denied)' "$pull_log"; then
             failed=1

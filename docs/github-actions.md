@@ -3,7 +3,7 @@
 This repository uses `.github/workflows/build-deploy.yml` for validation and manual deployment.
 Pushes to `dev` use `.github/workflows/build-dev.yml` to run the same validation pipeline without the deploy job.
 The dev workflow uses the GitHub Actions environment `dev`; the main deploy job uses `prod`.
-The dev workflow also starts the compose stack and validates the Uptime Kuma target inventory against the internal Docker endpoints defined in `The Eyes/Uptime-Kuma/monitors.yml`. Its image pull stage uses `--ignore-pull-failures` and stops with a clear diagnostic if a repository is denied or missing before stack startup.
+The dev workflow also starts the compose stack and validates the Uptime Kuma target inventory against the internal Docker endpoints defined in `The Eyes/Uptime-Kuma/monitors.yml`. Its image pull stage uses `--ignore-pull-failures`, attempts every service pull, and fails once at the end with a consolidated list of denied or missing repositories.
 The dev workflow also exports BuildKit cache settings through `BUILDKIT_CACHE_FROM` and `BUILDKIT_CACHE_TO` so the local build contexts can reuse layers instead of redownloading them on every run.
 
 ## Required Repository Secrets
@@ -52,4 +52,4 @@ Use the workflow dispatch run first when validating repo settings:
 3. Optionally set `profiles` to the profile set you want to test.
 4. Confirm the validate job passes before enabling deployment.
 
-The validate job runs `docker compose config`, checks shell syntax, and pulls the core images needed for the main stack profiles. If a repository is missing or denied, the workflow reports it and skips the stack validation step instead of failing deep in `docker compose up`. The build cache defaults to a local `.buildx-cache` directory for developer runs and switches to GitHub Actions cache in CI.
+The validate job runs `docker compose config`, checks shell syntax, and pulls the core images needed for the main stack profiles. If a repository is missing or denied, the workflow reports it after the full pull pass instead of failing deep in `docker compose up`. The build cache defaults to a local `.buildx-cache` directory for developer runs and switches to GitHub Actions cache in CI.

@@ -829,7 +829,7 @@ services:
     logging: *graylog-logging
 
   velociraptor:
-    image: xboarder56/velociraptor:${VELOCIRAPTOR_VERSION:-0.74.2}
+    image: xboarder56/velociraptor:${VELOCIRAPTOR_VERSION:-0.76.1}
     container_name: velociraptor
     profiles: ["ir", "all"]
     environment:
