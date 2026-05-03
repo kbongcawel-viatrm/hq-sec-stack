@@ -60,7 +60,7 @@ jobs:
 
       - name: Warm Harbor proxy cache and validate image availability
         run: |
-          python3 scripts/python/prewarm-registry-cache-final.py \
+          python3 scripts/prewarm-registry-cache-final.py \
             --compose-file security-stack.compose.yml \
             --profiles "${SECSTACK_PROFILES} monitor" \
             --targets-file "The Shield/scanner/targets.txt"
