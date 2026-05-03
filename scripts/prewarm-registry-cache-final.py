@@ -113,7 +113,13 @@ def cleanup_image_ref(image: str) -> None:
 
 
 def image_exists(image: str) -> bool:
-    return run_command(["docker", "image", "inspect", image]) == 0
+    proc = subprocess.run(
+        ["docker", "image", "inspect", image],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        check=False,
+    )
+    return proc.returncode == 0
 
 
 def split_image_ref(image: str) -> tuple[str, str, str | None, str | None]:
@@ -274,34 +280,25 @@ def sanitize_artifact_token(value: str) -> str:
     return "-".join(part for part in token.split("-") if part)
 
 
-def image_filename(image: str) -> str:
-    ref = image.strip()
+def docker_tar_name(image: str) -> str:
+    _, path, tag, digest = split_image_ref(image)
 
-    if "@" in ref:
-        ref = ref.split("@", 1)[0]
+    name = path.split("/")[-1]
 
-    last_slash = ref.rfind("/")
-    last_colon = ref.rfind(":")
-    if last_colon > last_slash:
-        ref = ref[:last_colon]
+    if tag:
+        version = tag
+    elif digest:
+        version = digest.replace(":", "-")
+    else:
+        version = "latest"
 
-    filename = ref.split("/")[-1]
-    filename = sanitize_artifact_token(filename)
+    name = sanitize_artifact_token(name)
+    version = sanitize_artifact_token(version)
 
-    if not filename:
+    if not name or not version:
         raise RuntimeError(f"Unable to infer artifact filename from image: {image}")
 
-    return filename
-
-
-def artifact_release_name(image: str, tag: str) -> str:
-    artifact_name = image_filename(image)
-    artifact_tag = sanitize_artifact_token(tag)
-
-    if not artifact_tag:
-        raise RuntimeError("Artifact tag cannot be empty")
-
-    return f"{artifact_name}-{artifact_tag}"
+    return f"{name}.{version}.tar"
 
 
 def compress_tar(tar_path: Path, gz_path: Path) -> None:
@@ -311,38 +308,40 @@ def compress_tar(tar_path: Path, gz_path: Path) -> None:
 
 
 def create_docker_artifact(image: str, tag: str, out_dir: str) -> Path:
-    release_name = artifact_release_name(image, tag)
-    tar_path = Path(f"{release_name}.tar")
-    gz_path = Path(f"{release_name}.tar.gz")
+    del tag  # Kept for backward-compatible call signature.
+
+    tar_path = Path(docker_tar_name(image))
+    gz_path = Path(f"{tar_path.name}.gz")
     artifact_dir = Path(out_dir)
     artifact_path = artifact_dir / gz_path.name
 
-    print(f"Creating Docker image tag: {release_name}")
-    run_command_checked(["docker", "tag", image, release_name])
+    try:
+        print(f"Saving Docker image artifact: {tar_path}")
+        if tar_path.exists():
+            tar_path.unlink()
+        run_command_checked(["docker", "save", "-o", str(tar_path), image])
 
-    print(f"Saving Docker image artifact: {tar_path}")
-    run_command_checked(["docker", "save", "-o", str(tar_path), release_name])
+        print(f"Compressing Docker image artifact: {gz_path}")
+        if gz_path.exists():
+            gz_path.unlink()
+        compress_tar(tar_path, gz_path)
 
-    print(f"Compressing Docker image artifact: {gz_path}")
-    if gz_path.exists():
-        gz_path.unlink()
-    compress_tar(tar_path, gz_path)
+        print(f"Creating artifact directory: {artifact_dir}")
+        artifact_dir.mkdir(parents=True, exist_ok=True)
 
-    print(f"Creating artifact directory: {artifact_dir}")
-    artifact_dir.mkdir(parents=True, exist_ok=True)
+        print(f"Moving artifact to: {artifact_path}")
+        if artifact_path.exists():
+            artifact_path.unlink()
+        gz_path.replace(artifact_path)
 
-    print(f"Moving artifact to: {artifact_path}")
-    if artifact_path.exists():
-        artifact_path.unlink()
-    gz_path.replace(artifact_path)
+        print(f"Artifact created: {artifact_path}")
+        return artifact_path
 
-    if tar_path.exists():
-        tar_path.unlink()
-
-    cleanup_image_ref(release_name)
-
-    print(f"Artifact created: {artifact_path}")
-    return artifact_path
+    finally:
+        if tar_path.exists():
+            tar_path.unlink()
+        if gz_path.exists():
+            gz_path.unlink()
 
 
 def prune_docker_artifact_resources() -> None:
@@ -367,7 +366,21 @@ def main() -> int:
 
     profiles = [profile for profile in args.profiles.split() if profile]
     targets_file = args.targets_file if Path(args.targets_file).exists() else None
-    images = load_images(args.compose_file, profiles, targets_file)
+
+    if targets_file:
+        images = []
+        seen: set[str] = set()
+
+        for raw_line in Path(targets_file).read_text(encoding="utf-8").splitlines():
+            line = raw_line.strip()
+            if not line or line.startswith("#"):
+                continue
+
+            if line not in seen:
+                images.append(line)
+                seen.add(line)
+    else:
+        images = load_images(args.compose_file, profiles, None)
 
     failures: list[str] = []
     artifact_paths: list[Path] = []

@@ -1,4 +1,8 @@
 # Keep this list aligned with security-stack.compose.yml defaults.
+fluent/fluent-bit:3.2.10
+curlimages/curl:8.10.1
+portainer/portainer-ce:latest
+crowdsecurity/crowdsec:v1.6.3
 coredns/coredns:1.11.3
 caddy:2.8.4-alpine
 louislam/uptime-kuma:1.23.16
