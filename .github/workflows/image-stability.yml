@@ -21,15 +21,20 @@ jobs:
       COMPOSE_DOCKER_CLI_BUILD: "1"
       BUILDKIT_CACHE_FROM: type=gha
       BUILDKIT_CACHE_TO: type=gha,mode=max
+
       DOCKER_CACHE_PRUNE_BEFORE_PULL: "true"
+      DOCKER_CACHE_PRUNE_AFTER_PULL: "true"
+
       HARBOR_CACHE_HOST: ${{ vars.HARBOR_CACHE_HOST }}
       HARBOR_CACHE_USERNAME: ${{ secrets.HARBOR_CACHE_USERNAME }}
       HARBOR_CACHE_PASSWORD: ${{ secrets.HARBOR_CACHE_PASSWORD }}
+
       HARBOR_CACHE_PROJECT_DOCKERIO: ${{ vars.HARBOR_CACHE_PROJECT_DOCKERIO }}
       HARBOR_CACHE_PROJECT_DOCKERHUB: ${{ vars.HARBOR_CACHE_PROJECT_DOCKERHUB }}
       HARBOR_CACHE_PROJECT_GHCR: ${{ vars.HARBOR_CACHE_PROJECT_GHCR }}
       HARBOR_CACHE_PROJECT_GREENBONE: ${{ vars.HARBOR_CACHE_PROJECT_GREENBONE }}
       HARBOR_CACHE_PROJECT_DEFAULT: ${{ vars.HARBOR_CACHE_PROJECT_DEFAULT }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -43,9 +48,19 @@ jobs:
           done
           docker compose -f security-stack.compose.yml "$@" config
 
-      - name: Warm registry cache and pull images
+      - name: Login to Harbor
         run: |
-          python3 scripts/python/prewarm-registry-cache.py --compose-file security-stack.compose.yml --profiles "${SECSTACK_PROFILES} monitor" --targets-file "The Shield/scanner/targets.txt"
+          echo "${HARBOR_CACHE_PASSWORD}" | docker login "${HARBOR_CACHE_HOST}" \
+            -u "${HARBOR_CACHE_USERNAME}" \
+            --password-stdin
+
+      - name: Warm Harbor registry cache and pull images
+        run: |
+          python3 scripts/python/prewarm-registry-cache.py \
+            --compose-file security-stack.compose.yml \
+            --profiles "${SECSTACK_PROFILES} monitor" \
+            --targets-file "The Shield/scanner/targets.txt"
+
       - name: Create success tag
         run: |
           TAG_NAME="stable-image-tag-$(date -u +'%Y%m%d%H%M%S')"
