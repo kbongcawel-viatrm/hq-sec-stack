@@ -60,7 +60,6 @@ jobs:
               jasonish/suricata:7.0
               zeek/zeek:lts
               strangebee/thehive:5.7
-              opensearchproject/opensearch:3.2.0
               ghcr.io/shuffle/shuffle-backend:latest
               ghcr.io/shuffle/shuffle-frontend:latest
               ghcr.io/shuffle/shuffle-orborus:latest
@@ -91,10 +90,6 @@ jobs:
               registry.community.greenbone.net/community/ospd-openvas:stable
               registry.community.greenbone.net/community/gvm-tools:latest
 
-          - name: ollama
-            targets: |
-              ollama/ollama:0.20.7
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -123,7 +118,7 @@ jobs:
 
       - name: Prewarm Docker image artifacts
         env:
-          DOCKER_ARTIFACT_DIR: artifacts/${{ matrix.batch.name }}
+          DOCKER_ARTIFACT_DIR: ${{ runner.temp }}/artifacts/${{ matrix.batch.name }}
           DOCKER_CACHE_FORCE_PULL: "true"
           DOCKER_CACHE_PRUNE_AFTER_EACH_IMAGE: "true"
           DOCKER_CACHE_PRUNE_AFTER_PULL: "true"
@@ -131,13 +126,13 @@ jobs:
         run: |
           python3 scripts/prewarm-registry-cache-final.py \
             --targets-file ".cache-targets/${{ matrix.batch.name }}.txt" \
-            --artifact-dir "artifacts/${{ matrix.batch.name }}"
+            --artifact-dir "${{ runner.temp }}/artifacts/${{ matrix.batch.name }}"
 
       - name: Show generated artifacts
         if: always()
         run: |
-          find artifacts -type f -name "*.tar.gz" -print || true
-          du -sh artifacts || true
+          find ${{ runner.temp }}/artifacts -type f -name "*.tar.gz" -print || true
+          du -sh ${{ runner.temp }}/artifacts || true
           df -h
           docker system df || true
 
@@ -146,14 +141,14 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: docker-images-${{ matrix.batch.name }}
-          path: artifacts/${{ matrix.batch.name }}/*.tar.gz
+          path: ${{ runner.temp }}/artifacts/${{ matrix.batch.name }}/*.tar.gz
           if-no-files-found: error
           retention-days: 7
 
       - name: Final cleanup
         if: always()
         run: |
-          rm -rf artifacts .cache-targets
+          rm -rf ${{ runner.temp }}/artifacts .cache-targets
           docker container prune -f || true
           docker image prune -af || true
           docker volume prune -f || true
