@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      HARBOR_REGISTRY: ${{ vars.HARBOR_CACHE_PROJECT_GHCR }}
+      HARBOR_REGISTRY: demo.goharbor.io
       BUILD_VERSION: ${{ github.event.inputs.build_version || 'v1' }}
 
     steps:
