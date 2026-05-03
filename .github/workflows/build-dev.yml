@@ -1,121 +1,147 @@
-name: Build HQ Security Stack (Development)
+name: Dev Environment From Docker Image Artifacts
 
 on:
+  workflow_run:
+    workflows:
+      - Prewarm Docker Image Artifacts
+    types:
+      - completed
+
   workflow_dispatch:
     inputs:
-      profiles:
-        description: "Optional compose profiles"
+      image_sync_run_id:
+        description: Optional run ID from image-sync.yml. Leave empty to use latest successful run.
         required: false
-        default: ""
+        type: string
+      secstack_profiles:
+        description: Docker Compose profiles to start.
+        required: false
+        default: all
         type: string
 
 permissions:
-  contents: write
+  contents: read
+  actions: read
 
 jobs:
-  validate:
-    name: Validate Compose and Sync Images
+  dev-environment:
+    name: Start dev environment from image artifacts
     runs-on: ubuntu-latest
-    environment: development
+
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
 
     env:
-      SECSTACK_PROFILES: ${{ vars.DEV_SECSTACK_PROFILES || 'all' }}
-
-      DOCKER_BUILDKIT: "1"
-      COMPOSE_DOCKER_CLI_BUILD: "1"
-
-      DOCKER_CACHE_PRUNE_BEFORE_PULL: "true"
-      DOCKER_CACHE_PRUNE_AFTER_PULL: "true"
-      DOCKER_CACHE_PRUNE_AFTER_EACH_IMAGE: "false"
-      DOCKER_CACHE_IGNORE_FAILURES: "true"
-
-      HARBOR_CACHE_HOST: ${{ vars.HARBOR_CACHE_HOST }}
-      HARBOR_CACHE_USERNAME: ${{ vars.HARBORUSER }}
-      HARBOR_CACHE_PASSWORD: ${{ secrets.HARBORPW }}
-
-      HARBOR_CACHE_PROJECT_DOCKERIO: ${{ vars.HARBOR_CACHE_PROJECT_DOCKERIO }}
-      HARBOR_CACHE_PROJECT_DOCKERHUB: ${{ vars.HARBOR_CACHE_PROJECT_DOCKERHUB }}
-      HARBOR_CACHE_PROJECT_GHCR: ${{ vars.HARBOR_CACHE_PROJECT_GHCR }}
-      HARBOR_CACHE_PROJECT_GREENBONE: ${{ vars.HARBOR_CACHE_PROJECT_GREENBONE }}
-      HARBOR_CACHE_PROJECT_DEFAULT: ${{ vars.HARBOR_CACHE_PROJECT_DEFAULT }}
-
-      HARBOR_CACHE_FALLBACK_TO_ORIGIN: "true"
+      COMPOSE_FILE: security-stack.compose.yml
+      SECSTACK_PROFILES: ${{ github.event.inputs.secstack_profiles || 'all' }}
+      IMAGE_ARTIFACT_ROOT: /root/artifacts
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
-      
-      - name: Login to Harbor
-        if: env.HARBOR_CACHE_HOST != '' && env.HARBOR_CACHE_USERNAME != '' && env.HARBOR_CACHE_PASSWORD != ''
+
+      - name: Resolve image-sync run ID
+        id: image-sync
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          WORKFLOW_RUN_ID: ${{ github.event.workflow_run.id }}
+          INPUT_IMAGE_SYNC_RUN_ID: ${{ github.event.inputs.image_sync_run_id }}
         run: |
-          echo "${HARBOR_CACHE_PASSWORD}" | docker login "${HARBOR_CACHE_HOST}" \
-            -u "${HARBOR_CACHE_USERNAME}" \
-            --password-stdin
-      
-      - name: Prepare and start stack
-        run: |
-          cp .env.example .env 
-      
-      - name: Login to Harbor
-        if: env.HARBOR_CACHE_HOST != '' && env.HARBOR_CACHE_USERNAME != '' && env.HARBOR_CACHE_PASSWORD != ''
-        run: |
-          echo "${HARBOR_CACHE_PASSWORD}" | docker login "${HARBOR_CACHE_HOST}" \
-            -u "${HARBOR_CACHE_USERNAME}" \
-            --password-stdin
-            
-      - name: Validate compose configuration
-        shell: bash
-        run: |
-          set -eu
-          set --
-          for profile in ${SECSTACK_PROFILES} monitor; do
-            set -- "$@" --profile "$profile"
-          done
-          docker compose --env-file .env -f "$COMPOSE_FILE" "$@" config
-     
-      - name: Pull production artifacts
+          set -euo pipefail
+
+          if [ "${EVENT_NAME}" = "workflow_run" ]; then
+            run_id="${WORKFLOW_RUN_ID}"
+          elif [ -n "${INPUT_IMAGE_SYNC_RUN_ID:-}" ]; then
+            run_id="${INPUT_IMAGE_SYNC_RUN_ID}"
+          else
+            run_id="$(gh run list \
+              --workflow image-sync.yml \
+              --status success \
+              --limit 1 \
+              --json databaseId \
+              --jq '.[0].databaseId')"
+          fi
+
+          if [ -z "${run_id}" ] || [ "${run_id}" = "null" ]; then
+            echo "Unable to resolve an image-sync.yml run ID." >&2
+            exit 1
+          fi
+
+          echo "Using image-sync run ID: ${run_id}"
+          echo "run-id=${run_id}" >> "${GITHUB_OUTPUT}"
+
+      - name: Download Docker image artifacts from image-sync.yml
         uses: actions/download-artifact@v4
         with:
-          name: docker-image-artifacts-prd-${{ github.run_id }}
-          path: downloaded-artifacts
+          pattern: docker-images-*
+          path: /root/artifacts
+          merge-multiple: false
+          github-token: ${{ github.token }}
+          run-id: ${{ steps.image-sync.outputs.run-id }}
 
-      - name: Load production artifacts
-        shell: bash
+      - name: Show downloaded image artifacts
         run: |
-          set -eu
-          for artifact in downloaded-artifacts/*.tar.gz; do
-            [ -e "$artifact" ] || {
-              echo "No Docker artifacts found"
-              exit 1
-            }
-            echo "Loading Docker artifact: $artifact"
-            gzip -dc "$artifact" | docker load
-          done
+          set -euo pipefail
+          find "${IMAGE_ARTIFACT_ROOT}" -type f -name "*.tar.gz" -print | sort
 
-      - name: Docker compose build from loaded artifacts
-        shell: bash
+      - name: Load Docker images from artifacts
         run: |
-          set -eu
-          for artifact in downloaded-artifacts/*.tar.gz; do
-            [ -e "$artifact" ] || {
-              echo "No Docker artifacts found"
-              exit 1
-            }
-            echo "Loading Docker artifact: $artifact"
-            gzip -dc "$artifact" | docker load
-          done
-          
-      - name: Prepare and start stack
+          set -euo pipefail
+
+          found="false"
+
+          while IFS= read -r artifact; do
+            found="true"
+            echo "Loading Docker image artifact: ${artifact}"
+            gzip -dc "${artifact}" | docker load
+          done < <(find "${IMAGE_ARTIFACT_ROOT}" -type f -name "*.tar.gz" | sort)
+
+          if [ "${found}" != "true" ]; then
+            echo "No Docker image artifacts were found under ${IMAGE_ARTIFACT_ROOT}." >&2
+            exit 1
+          fi
+
+      - name: Show Docker images after load
         run: |
-          sh scripts/start-stack.sh
-          
-      - name: Start compose stack for monitor validation
+          docker image ls
+          docker system df || true
+
+      - name: Prepare dev environment file
         run: |
-          set -eu
-          set --
+          set -euo pipefail
+          cp .env.example .env
+
+      - name: Validate Compose configuration
+        run: |
+          set -euo pipefail
+
+          compose_args="-f ${COMPOSE_FILE}"
           for profile in ${SECSTACK_PROFILES}; do
-            set -- "$@" --profile "$profile"
+            compose_args="${compose_args} --profile ${profile}"
           done
-          docker compose --env-file .env -f "$COMPOSE_FILE" "$@" config
-          docker compose --env-file .env -f "$COMPOSE_FILE" "$@" build --pull never
-      
+
+          docker compose ${compose_args} config >/dev/null
+          docker compose ${compose_args} config --images | sort -u
+
+      - name: Start dev stack
+        env:
+          SECSTACK_PROFILES: ${{ env.SECSTACK_PROFILES }}
+        run: |
+          set -euo pipefail
+          sh scripts/start-stack.sh
+
+      - name: Show running containers
+        if: always()
+        run: |
+          docker ps -a || true
+          docker compose -f "${COMPOSE_FILE}" ps || true
+
+      - name: Cleanup downloaded artifacts and unused Docker resources
+        if: always()
+        run: |
+          rm -rf "${IMAGE_ARTIFACT_ROOT}"
+          docker container prune -f || true
+          docker image prune -af || true
+          docker volume prune -f || true
+          docker builder prune -af || true
+          docker system df || true
