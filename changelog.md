@@ -2,6 +2,7 @@
 
 | Commit Message | Branch | Hash | Date |
 | --- | --- | --- | --- |
+| Add BuildKit cache settings | dev | c300c10ed2fb9c45dac9a1884ddddac5a52d2701 | 2026-05-03 |
 | Ignore pull failures in dev workflow | dev | 94252e883aa0009cd1c9b1fb2d8108fc0876e7d0 | 2026-05-03 |
 | Split Shuffle into public GHCR services | dev | 19240ff1ecd8e475577898bebb356db5e5173fbd | 2026-05-03 |
 | Add dev monitor validation stage | dev | 7465ab7bd17ae4fc20d4726f2ea77c000534a1f7 | 2026-05-03 |
