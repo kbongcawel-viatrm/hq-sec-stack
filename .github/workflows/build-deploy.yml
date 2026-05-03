@@ -22,6 +22,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       SECSTACK_PROFILES: ${{ inputs.profiles || 'all' }}
+      DOCKER_BUILDKIT: "1"
+      COMPOSE_DOCKER_CLI_BUILD: "1"
       DOCKER_CACHE_PRUNE_BEFORE_PULL: "true"
     steps:
       - name: Checkout
@@ -79,6 +81,8 @@ jobs:
     environment: prod
     env:
       SECSTACK_PROFILES: ${{ inputs.profiles || vars.PROD_SECSTACK_PROFILES || 'dns secrets brain ops' }}
+      DOCKER_BUILDKIT: "1"
+      COMPOSE_DOCKER_CLI_BUILD: "1"
     steps:
       - name: Validate deploy settings
         run: |

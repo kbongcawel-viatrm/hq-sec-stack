@@ -14,6 +14,8 @@ jobs:
     environment: dev
     env:
       SECSTACK_PROFILES: ${{ vars.DEV_SECSTACK_PROFILES || 'all' }}
+      DOCKER_BUILDKIT: "1"
+      COMPOSE_DOCKER_CLI_BUILD: "1"
       BUILDKIT_CACHE_FROM: type=gha
       BUILDKIT_CACHE_TO: type=gha,mode=max
       DOCKER_CACHE_PRUNE_BEFORE_PULL: "true"
