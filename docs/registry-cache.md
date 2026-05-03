@@ -36,6 +36,8 @@ Use these upstream registry URLs when you create the Harbor `Registries -> New E
 
 The cache helper maps `docker.io` image references to `HARBOR_CACHE_PROJECT_DOCKERIO` first, then `HARBOR_CACHE_PROJECT_DOCKERHUB`, `ghcr.io` to the GHCR proxy project, and `registry.community.greenbone.net` to the Greenbone proxy project. The Greenbone Redis service now pulls from the Docker Hub mirror `greenbone/redis-server:latest`, and the SCAP data container uses the Docker Hub mirror `vulnvision/greenbone-scap-data:latest` to avoid the flaky community registry pull path during warmup.
 
+The GitHub Actions workflows export the `HARBOR_CACHE_*` variables when they are configured in repo settings. That lets the prewarm step login to Harbor and pull through your proxy cache projects before falling back to public registries.
+
 ## Required Environment Variables
 
 Set these in `.env` or in GitHub Actions variables/secrets as appropriate:
