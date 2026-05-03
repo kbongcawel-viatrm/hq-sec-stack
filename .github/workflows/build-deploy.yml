@@ -30,7 +30,8 @@ jobs:
         run: cp .env.example .env
 
       - name: Report validation profile selection
-        run: echo "Validating profiles: ${SECSTACK_PROFILES}"
+        run: |
+          echo "Validating profiles: ${SECSTACK_PROFILES}"
 
       - name: Validate compose configuration
         run: |
