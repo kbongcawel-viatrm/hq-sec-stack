@@ -1,6 +1,7 @@
 # GitHub Actions Configuration
 
 This repository uses `.github/workflows/build-deploy.yml` for validation and manual deployment.
+Pushes to `dev` use `.github/workflows/build-dev.yml` to run the same validation pipeline without the deploy job.
 
 ## Required Repository Secrets
 

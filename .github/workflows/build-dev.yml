@@ -1,0 +1,61 @@
+name: Build Security Stack (dev)
+
+on:
+  push:
+    branches: ["dev"]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate Compose and Scripts
+    runs-on: ubuntu-latest
+    env:
+      SECSTACK_PROFILES: all
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create environment file
+        env:
+          CADDY_CROWDSEC_API_KEY: ${{ secrets.CADDY_CROWDSEC_API_KEY }}
+        run: |
+          cp .env.example .env
+          tmp_env="$(mktemp)"
+          while IFS= read -r line; do
+            case "$line" in
+              CADDY_CROWDSEC_API_KEY=*)
+                printf 'CADDY_CROWDSEC_API_KEY=%s\n' "$CADDY_CROWDSEC_API_KEY"
+                ;;
+              *)
+                printf '%s\n' "$line"
+                ;;
+            esac
+          done < .env > "$tmp_env"
+          mv "$tmp_env" .env
+
+      - name: Report validation profile selection
+        run: |
+          echo "Validating profiles: ${SECSTACK_PROFILES}"
+
+      - name: Validate compose configuration
+        run: |
+          set -eu
+          set --
+          for profile in ${SECSTACK_PROFILES}; do
+            set -- "$@" --profile "$profile"
+          done
+          docker compose -f security-stack.compose.yml "$@" config
+
+      - name: Validate shell scripts
+        run: |
+          bash -n scripts/start-stack.sh
+          bash -n scripts/killswitch.sh
+          bash -n "The Hands/backup/scripts/backup-volumes.sh"
+          bash -n "The Hands/backup/scripts/restore-volume.sh"
+          bash -n "The Shield/scanner/scripts/scan-containers.sh"
+          bash -n "The Shield/vault/scripts/monthly-rotate.sh"
+
+      - name: Pull critical profile images
+        run: docker compose -f security-stack.compose.yml --profile dns --profile secrets --profile brain pull --ignore-buildable
