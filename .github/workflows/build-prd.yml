@@ -1,129 +1,183 @@
-name: Build HQ Security Stack (Production)
+name: PRD Deploy From Docker Image Artifacts
 
 on:
   workflow_dispatch:
     inputs:
-      profiles:
-        description: "Optional compose profiles"
+      image_sync_run_id:
+        description: Optional image-sync.yml run ID. Leave empty to use the latest successful image-sync.yml run.
         required: false
-        default: ""
+        type: string
+      secstack_profiles:
+        description: Docker Compose profiles to start in PRD.
+        required: false
+        default: all
+        type: string
+      compose_file:
+        description: Docker Compose file to deploy.
+        required: false
+        default: security-stack.compose.yml
+        type: string
+      env_file:
+        description: Environment file to copy to .env before deployment.
+        required: false
+        default: .env.prd
         type: string
 
 permissions:
-  contents: write
+  contents: read
+  actions: read
+
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: prd-security-stack
+  cancel-in-progress: false
 
 jobs:
-  validate:
-    name: Validate Compose and Sync Images
-    runs-on: ubuntu-latest
-    environment: production
+  deploy-prd:
+    name: Deploy PRD from image artifacts
+
+    # Use a persistent/self-hosted PRD runner for a real production stack.
+    # GitHub-hosted ubuntu-latest runners are destroyed after the job finishes.
+    runs-on: [self-hosted, prd]
+    environment: prd
 
     env:
-      SECSTACK_PROFILES: ${{ vars.DEV_SECSTACK_PROFILES || 'all' }}
-
-      DOCKER_BUILDKIT: "1"
-      COMPOSE_DOCKER_CLI_BUILD: "1"
-
-      DOCKER_CACHE_PRUNE_BEFORE_PULL: "true"
-      DOCKER_CACHE_PRUNE_AFTER_PULL: "true"
-      DOCKER_CACHE_PRUNE_AFTER_EACH_IMAGE: "false"
-      DOCKER_CACHE_IGNORE_FAILURES: "true"
-
-      HARBOR_CACHE_HOST: ${{ vars.HARBOR_CACHE_HOST }}
-      HARBOR_CACHE_USERNAME: ${{ vars.HARBORUSER }}
-      HARBOR_CACHE_PASSWORD: ${{ secrets.HARBORPW }}
-
-      HARBOR_CACHE_PROJECT_DOCKERIO: ${{ vars.HARBOR_CACHE_PROJECT_DOCKERIO }}
-      HARBOR_CACHE_PROJECT_DOCKERHUB: ${{ vars.HARBOR_CACHE_PROJECT_DOCKERHUB }}
-      HARBOR_CACHE_PROJECT_GHCR: ${{ vars.HARBOR_CACHE_PROJECT_GHCR }}
-      HARBOR_CACHE_PROJECT_GREENBONE: ${{ vars.HARBOR_CACHE_PROJECT_GREENBONE }}
-      HARBOR_CACHE_PROJECT_DEFAULT: ${{ vars.HARBOR_CACHE_PROJECT_DEFAULT }}
-
-      HARBOR_CACHE_FALLBACK_TO_ORIGIN: "true"
+      IMAGE_ARTIFACT_ROOT: ${{ runner.temp }}/artifacts
+      COMPOSE_FILE: ${{ github.event.inputs.compose_file || 'security-stack.compose.yml' }}
+      SECSTACK_PROFILES: ${{ github.event.inputs.secstack_profiles || 'all' }}
+      ENV_FILE: ${{ github.event.inputs.env_file || '.env.prd' }}
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
-      
-      - name: Login to Harbor
-        if: env.HARBOR_CACHE_HOST != '' && env.HARBOR_CACHE_USERNAME != '' && env.HARBOR_CACHE_PASSWORD != ''
-        run: |
-          echo "${HARBOR_CACHE_PASSWORD}" | docker login "${HARBOR_CACHE_HOST}" \
-            -u "${HARBOR_CACHE_USERNAME}" \
-            --password-stdin
-      
-      - name: Prepare and start stack
-        run: |
-          cp .env.example .env 
-      
-      - name: Login to Harbor
-        if: env.HARBOR_CACHE_HOST != '' && env.HARBOR_CACHE_USERNAME != '' && env.HARBOR_CACHE_PASSWORD != ''
-        run: |
-          echo "${HARBOR_CACHE_PASSWORD}" | docker login "${HARBOR_CACHE_HOST}" \
-            -u "${HARBOR_CACHE_USERNAME}" \
-            --password-stdin
-            
-      - name: Validate compose configuration
-        shell: bash
-        run: |
-          set -eu
-          set --
-          for profile in ${SECSTACK_PROFILES} monitor; do
-            set -- "$@" --profile "$profile"
-          done
-          docker compose --env-file .env -f "$COMPOSE_FILE" "$@" config
-      
-      - name: Validate shell scripts
-        run: |
-          bash -n scripts/start-stack.sh
-          bash -n scripts/killswitch.sh
-          bash -n "The Hands/backup/scripts/backup-volumes.sh"
-          bash -n "The Hands/backup/scripts/restore-volume.sh"
-          bash -n "The Shield/scanner/scripts/scan-containers.sh"
-          bash -n "The Shield/vault/scripts/monthly-rotate.sh"
 
-      - name: Pull production artifacts
+      - name: Resolve image-sync run ID
+        id: image-sync
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_IMAGE_SYNC_RUN_ID: ${{ github.event.inputs.image_sync_run_id }}
+          set -euo pipefail
+
+          if [ -n "${INPUT_IMAGE_SYNC_RUN_ID:-}" ]; then
+            run_id="${INPUT_IMAGE_SYNC_RUN_ID}"
+          else
+            run_id="$(gh run list \
+              --workflow image-sync.yml \
+              --status success \
+              --limit 1 \
+              --json databaseId \
+              --jq '.[0].databaseId')"
+          fi
+
+          if [ -z "${run_id}" ] || [ "${run_id}" = "null" ]; then
+            echo "Unable to resolve a successful image-sync.yml run ID." >&2
+            exit 1
+          fi
+
+          echo "Using image-sync.yml run ID: ${run_id}"
+          echo "run-id=${run_id}" >> "${GITHUB_OUTPUT}"
+
+      - name: Download all Docker image artifacts from image-sync.yml
         uses: actions/download-artifact@v4
         with:
-          name: docker-image-artifacts-${{ github.run_number }}
-          path: artifact/*.tar.gz
+          pattern: docker-images-*
+          path: ${{ runner.temp }}/artifacts
+          github-token: ${{ github.token }}
+          run-id: ${{ steps.image-sync.outputs.run-id }}
 
-      - name: Load production artifacts
-        shell: bash
+      - name: Show downloaded artifacts
         run: |
-          set -eu
-          for artifact in downloaded-artifacts/*.tar.gz; do
-            [ -e "$artifact" ] || {
-              echo "No Docker artifacts found"
-              exit 1
-            }
-            echo "Loading Docker artifact: $artifact"
-            gzip -dc "$artifact" | docker load
-          done
-          
-      - name: Prepare and start stack
-        run: |
-          sh scripts/start-stack.sh
-          
-      - name: Start compose stack for monitor validation
-        run: |
-          set -eu
-          set --
-          for profile in ${SECSTACK_PROFILES} monitor; do
-            set -- "$@" --profile "$profile"
-          done
-          docker compose --env-file .env -f "$COMPOSE_FILE" "$@" config
-          docker compose --env-file .env -f "$COMPOSE_FILE" "$@" build --pull never
-          
-      - name: Start compose stack for monitor validation
-        run: |
-          set -eu
-          set --
-          for profile in ${SECSTACK_PROFILES} monitor; do
-            set -- "$@" --profile "$profile"
-          done
-          docker compose -f security-stack.compose.yml "$@" up -d --build --pull never --remove-orphans
+          set -euo pipefail
 
-      - name: Validate Uptime Kuma targets
+          echo "Downloaded Docker image artifacts:"
+          find "${IMAGE_ARTIFACT_ROOT}" -type f -name "*.tar.gz" -print | sort
+
+      - name: Load Docker images from artifacts
         run: |
-          docker compose -f security-stack.compose.yml --profile monitor run --rm --no-deps --entrypoint python uptime-kuma-sync /uptime-kuma/scripts/validate-monitors.py
+          set -euo pipefail
+
+          count=0
+
+          while IFS= read -r artifact; do
+            echo "Loading Docker image artifact: ${artifact}"
+            gzip -dc "${artifact}" | docker load
+            count=$((count + 1))
+          done < <(find "${IMAGE_ARTIFACT_ROOT}" -type f -name "*.tar.gz" | sort)
+
+          if [ "${count}" -eq 0 ]; then
+            echo "No Docker image artifacts were found under ${IMAGE_ARTIFACT_ROOT}." >&2
+            exit 1
+          fi
+
+          echo "Loaded ${count} Docker image artifacts."
+
+      - name: Show Docker images after load
+        run: |
+          docker image ls
+          docker system df || true
+
+      - name: Prepare PRD environment file
+        run: |
+          set -euo pipefail
+
+          if [ -f "${ENV_FILE}" ]; then
+            cp "${ENV_FILE}" .env
+          elif [ -f ".env.example" ]; then
+            echo "WARNING: ${ENV_FILE} was not found. Falling back to .env.example." >&2
+            cp .env.example .env
+            echo "Neither ${ENV_FILE} nor .env.example exists." >&2
+            exit 1
+          fi
+
+      - name: Validate Docker Compose config
+        run: |
+          set -euo pipefail
+
+          compose_args=("-f" "${COMPOSE_FILE}")
+
+          for profile in ${SECSTACK_PROFILES}; do
+            compose_args+=("--profile" "${profile}")
+          done
+
+          docker compose "${compose_args[@]}" config >/dev/null
+
+          echo "Images required by Compose:"
+          docker compose "${compose_args[@]}" config --images | sort -u
+
+      - name: Start PRD stack
+        run: |
+          set -euo pipefail
+
+          # Prefer the project start script if it exists.
+          if [ -x "scripts/start-stack.sh" ] || [ -f "scripts/start-stack.sh" ]; then
+            sh scripts/start-stack.sh
+          else
+            compose_args=("-f" "${COMPOSE_FILE}")
+            for profile in ${SECSTACK_PROFILES}; do
+              compose_args+=("--profile" "${profile}")
+            done
+
+            docker compose "${compose_args[@]}" up -d
+          fi
+
+      - name: Show PRD containers
+        if: always()
+        run: |
+          docker ps -a || true
+          docker compose -f "${COMPOSE_FILE}" ps || true
+          docker system df || true
+
+      - name: Cleanup downloaded artifacts and unused Docker resources
+        if: always()
+        run: |
+          rm -rf "${IMAGE_ARTIFACT_ROOT}"
+
+          docker container prune -f || true
+          docker image prune -af || true
+          docker volume prune -f || true
+          docker builder prune -af || true
+          docker system df || true
+

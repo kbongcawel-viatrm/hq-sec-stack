@@ -1,9 +1,8 @@
 name: Prewarm Docker Image Artifacts
 
 on:
-  push:
-    branches: dev
-              main
+  schedule:
+    - cron: '0 0 * * *'
   workflow_dispatch:
 
 permissions:
@@ -22,7 +21,6 @@ jobs:
       HARBOR_CACHE_PROJECT_DOCKERIO: ${{ vars.HARBOR_CACHE_PROJECT_DOCKERIO }}
       HARBOR_CACHE_PROJECT_DOCKERHUB: ${{ vars.HARBOR_CACHE_PROJECT_DOCKERHUB }}
       HARBOR_CACHE_PROJECT_GHCR: ${{ vars.HARBOR_CACHE_PROJECT_GHCR }}
-      HARBOR_CACHE_PROJECT_GREENBONE: ${{ vars.HARBOR_CACHE_PROJECT_GREENBONE }}
       HARBOR_CACHE_PROJECT_DEFAULT: ${{ vars.HARBOR_CACHE_PROJECT_DEFAULT }}
 
     strategy:
@@ -77,27 +75,20 @@ jobs:
               registry.community.greenbone.net/community/cert-bund-data:latest
               registry.community.greenbone.net/community/dfn-cert-data:latest
               registry.community.greenbone.net/community/data-objects:latest
-              registry.community.greenbone.net/community/report-formats:latest
               registry.community.greenbone.net/community/gpg-data:latest
               greenbone/redis-server:latest
               registry.community.greenbone.net/community/pg-gvm-migrator:stable
               registry.community.greenbone.net/community/pg-gvm:stable
               registry.community.greenbone.net/community/gvmd:stable
               registry.community.greenbone.net/community/gsa:stable-slim
-              registry.community.greenbone.net/community/gsad:stable
               registry.community.greenbone.net/community/gvm-config:latest
-              registry.community.greenbone.net/community/nginx:latest
               registry.community.greenbone.net/community/openvas-scanner:stable
               registry.community.greenbone.net/community/ospd-openvas:stable
-              registry.community.greenbone.net/community/gvm-tools:latest
-
-          #- name: ol
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Login to Harbor
         if: env.HARBOR_CACHE_HOST != '' && env.HARBOR_CACHE_USERNAME != '' && env.HARBOR_CACHE_PASSWORD != ''
         run: |
           echo "${HARBOR_CACHE_PASSWORD}" | docker login "${HARBOR_CACHE_HOST}" \
@@ -121,7 +112,7 @@ jobs:
 
       - name: Prewarm Docker image artifacts
         env:
-          DOCKER_ARTIFACT_DIR: /root/artifacts/${{ matrix.batch.name }}
+          DOCKER_ARTIFACT_DIR: /${{ runner.temp }}/artifacts/${{ matrix.batch.name }}
           DOCKER_CACHE_FORCE_PULL: "true"
           DOCKER_CACHE_PRUNE_AFTER_EACH_IMAGE: "true"
           DOCKER_CACHE_PRUNE_AFTER_PULL: "true"
@@ -129,14 +120,14 @@ jobs:
         run: |
           python3 scripts/prewarm-registry-cache-final.py \
             --targets-file ".cache-targets/${{ matrix.batch.name }}.txt" \
-            --artifact-dir "/root/artifacts/${{ matrix.batch.name }}"
+            --artifact-dir "/${{ runner.temp }}/artifacts/${{ matrix.batch.name }}"
 
       - name: Show generated artifacts
         if: always()
         run: |
-          find /root/artifacts -type f -name "*.tar.gz" -print || true
-          du -sh /root/artifacts || true
-          df -h /root/ || true
+          find /${{ runner.temp }}/artifacts -type f -name "*.tar.gz" -print || true
+          du -sh /${{ runner.temp }}/artifacts || true
+          df -h /${{ runner.temp }}/ || true
           docker system df || true
 
       - name: Upload Docker image artifacts
@@ -144,17 +135,17 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: docker-images-${{ matrix.batch.name }}
-          path: /root/artifacts/${{ matrix.batch.name }}/*.tar.gz
+          path: /${{ runner.temp }}/artifacts/${{ matrix.batch.name }}/*.tar.gz
           if-no-files-found: error
           retention-days: 7
 
       - name: Final cleanup
         if: always()
         run: |
-          rm -rf /root/artifacts .cache-targets
+          rm -rf /${{ runner.temp }}/artifacts .cache-targets
           docker container prune -f || true
           docker image prune -af || true
           docker volume prune -f || true
           docker builder prune -af || true
-          df -h /root || true
+          df -h /${{ runner.temp }} || true
           df -h /var/lib/docker || true
