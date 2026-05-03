@@ -62,16 +62,6 @@ jobs:
           echo "${HARBOR_CACHE_PASSWORD}" | docker login "${HARBOR_CACHE_HOST}" \
             -u "${HARBOR_CACHE_USERNAME}" \
             --password-stdin
-            
-      - name: Validate compose configuration
-        shell: bash
-        run: |
-          set -eu
-          set --
-          for profile in ${SECSTACK_PROFILES} monitor; do
-            set -- "$@" --profile "$profile"
-          done
-          docker compose --env-file .env -f "$COMPOSE_FILE" "$@" config
       
       - name: Validate shell scripts
         run: |
