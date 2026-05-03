@@ -1,4 +1,4 @@
-name: Build Production Docker Artifacts
+name: Build HQ Security Stack (Production)
 
 on:
   workflow_dispatch:
