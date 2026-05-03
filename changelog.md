@@ -2,6 +2,7 @@
 
 | Commit Message | Branch | Hash | Date |
 | --- | --- | --- | --- |
+| Ignore pull failures in dev workflow | dev | 94252e883aa0009cd1c9b1fb2d8108fc0876e7d0 | 2026-05-03 |
 | Split Shuffle into public GHCR services | dev | 19240ff1ecd8e475577898bebb356db5e5173fbd | 2026-05-03 |
 | Add dev monitor validation stage | dev | 7465ab7bd17ae4fc20d4726f2ea77c000534a1f7 | 2026-05-03 |
 | Split dev and prod workflow environments | dev | 55d67dd43bcf7ba5e202889916a761c7b5626bc7 | 2026-05-03 |
