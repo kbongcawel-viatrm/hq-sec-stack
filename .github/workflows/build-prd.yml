@@ -1,27 +1,38 @@
 name: PRD Deploy From Docker Image Artifacts
 
 on:
+  workflow_run:
+    workflows: ["Prewarm Docker Image Artifacts"]
+    types: [completed]
+
   workflow_dispatch:
-    inputs:
-      image_sync_run_id:
-        description: Optional image-sync.yml run ID. Leave empty to use the latest successful image-sync.yml run.
-        required: false
-        type: string
-      secstack_profiles:
-        description: Docker Compose profiles to start in PRD.
-        required: false
-        default: all
-        type: string
-      compose_file:
-        description: Docker Compose file to deploy.
-        required: false
-        default: security-stack.compose.yml
-        type: string
-      env_file:
-        description: Environment file to copy to .env before deployment.
-        required: false
-        default: .env.prd
-        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+#on:
+#  workflow_dispatch:
+#    inputs:
+#      image_sync_run_id:
+#        description: Optional image-sync.yml run ID. Leave empty to use the latest successful image-sync.yml run.
+#        required: false
+#        type: string
+#      secstack_profiles:
+#        description: Docker Compose profiles to start in PRD.
+#        required: false
+#        default: all
+#        type: string
+#      compose_file:
+#        description: Docker Compose file to deploy.
+#        required: false
+#        default: security-stack.compose.yml
+#        type: string
+#      env_file:
+#        description: Environment file to copy to .env before deployment.
+#        required: false
+#        default: .env.prd
+#        type: string
 
 permissions:
   contents: read
