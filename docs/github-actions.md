@@ -12,6 +12,7 @@ Create these in `Settings -> Secrets and variables -> Actions -> Secrets`.
 | `DEPLOY_USER` | SSH user for the deployment target. |
 | `DEPLOY_SSH_KEY` | Private key used by the workflow SSH action. |
 | `DEPLOY_PATH` | Absolute path to the checkout on the remote host. |
+| `CADDY_CROWDSEC_API_KEY` | CrowdSec bouncer key injected into the Caddy container at deploy time. |
 
 ## Required Repository Variables
 

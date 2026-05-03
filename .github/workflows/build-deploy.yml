@@ -77,13 +77,17 @@ jobs:
 
       - name: Deploy over SSH
         uses: appleboy/ssh-action@v1.0.3
+        env:
+          CADDY_CROWDSEC_API_KEY: ${{ secrets.CADDY_CROWDSEC_API_KEY }}
         with:
+          envs: CADDY_CROWDSEC_API_KEY
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           port: ${{ vars.DEPLOY_PORT || 22 }}
           script: |
             set -eu
+            : "${CADDY_CROWDSEC_API_KEY:?CADDY_CROWDSEC_API_KEY secret is required}"
             cd "${{ secrets.DEPLOY_PATH }}"
             git fetch --all
             git checkout "${{ github.ref_name }}"
