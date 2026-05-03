@@ -1,4 +1,6 @@
-<img width="1918" height="724" alt="IMG_0015" src="https://github.com/user-attachments/assets/170ed071-d6de-4dd4-b14e-f11aff66c2cc" />
+<img width="570" height="210" alt="glowing_aura_banner_1900x700_10mb" src="https://github.com/user-attachments/assets/5b8ceadd-6fc3-48f7-a1db-8b7c8b131332" />
+
+> *"The soul behind the body parts. Pulling the strings. Making everyone better."*
 
 # HQ Security Stack
 
