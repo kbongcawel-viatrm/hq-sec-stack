@@ -55,6 +55,10 @@ services:
     build:
       context: "./The Hands/FQDN proxy - Caddy"
       dockerfile: Dockerfile
+      cache_from:
+        - "${BUILDKIT_CACHE_FROM:-type=local,src=.buildx-cache}"
+      cache_to:
+        - "${BUILDKIT_CACHE_TO:-type=local,dest=.buildx-cache,mode=max}"
     image: hq-sec/caddy-crowdsec
     container_name: fqdn-proxy
     profiles: ["dns", "all"]
@@ -1284,6 +1288,10 @@ services:
     build:
       context: "./The Eyes/nmap"
       dockerfile: Dockerfile
+      cache_from:
+        - "${BUILDKIT_CACHE_FROM:-type=local,src=.buildx-cache}"
+      cache_to:
+        - "${BUILDKIT_CACHE_TO:-type=local,dest=.buildx-cache,mode=max}"
     container_name: nmap-scanner
     profiles: ["network", "all"]
     networks:
@@ -1298,6 +1306,10 @@ services:
     build:
       context: "./The Eyes/wireshark"
       dockerfile: Dockerfile
+      cache_from:
+        - "${BUILDKIT_CACHE_FROM:-type=local,src=.buildx-cache}"
+      cache_to:
+        - "${BUILDKIT_CACHE_TO:-type=local,dest=.buildx-cache,mode=max}"
     container_name: wireshark-scanner
     profiles: ["network", "all"]
     network_mode: host
