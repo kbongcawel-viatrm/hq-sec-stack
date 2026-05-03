@@ -2,6 +2,7 @@
 
 | Commit Message | Branch | Hash | Date |
 | --- | --- | --- | --- |
+| Consolidate network scanner image | dev | ff65c40 | 2026-05-03 |
 | Reduce prewarm failures | dev | de9f733 | 2026-05-03 |
 | Add Harbor project mappings | dev | 341597f | 2026-05-03 |
 | Document Harbor proxy cache endpoints | dev | a5ba376fc7348402fc859240b5f82ddf55a38680 | 2026-05-03 |
