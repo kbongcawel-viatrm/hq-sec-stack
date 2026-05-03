@@ -11,5 +11,5 @@
 10.77.0.80 vault.hq-sec.local
 10.77.0.80 reports.hq-sec.local
 10.77.0.80 uptime.hq-sec.local
-10.77.0.80 ollama.hq-sec.local
+10.77.0.80 ghost.hq-sec.local
 10.77.0.80 coredns.hq-sec.local

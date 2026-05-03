@@ -99,16 +99,16 @@ services:
   # The Ghost - LLM Governance (governs above all pillars)
   ############################################################
 
-  ollama:
-    image: ollama/ollama:${OLLAMA_VERSION:-0.20.7}
-    container_name: ollama
+  ghost:
+    image: ollama/ollama:${GHOST_VERSION:-0.20.7}
+    container_name: ghost
     profiles: ["ghost", "llm", "all"]
     volumes:
-      - ollama-data:/root/.ollama
+      - ghost-data:/root/.ollama
     networks:
       - secnet
     ports:
-      - "${STACK_BIND_IP:-127.0.0.1}:${OLLAMA_PORT:-11434}:11434"
+      - "${STACK_BIND_IP:-127.0.0.1}:${GHOST_PORT:-11434}:11434"
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "ollama list >/dev/null 2>&1 || exit 1"]
@@ -118,12 +118,12 @@ services:
       start_period: 30s
     logging: *graylog-logging
 
-  ollama-model-pull:
-    image: ollama/ollama:${OLLAMA_VERSION:-0.20.7}
-    container_name: ollama-model-pull
+  ghost-model-pull:
+    image: ollama/ollama:${GHOST_VERSION:-0.20.7}
+    container_name: ghost-model-pull
     profiles: ["ghost", "llm", "all"]
     environment:
-      OLLAMA_HOST: "${GHOST_LOCAL_API:-http://ollama:11434}"
+      OLLAMA_HOST: "${GHOST_LOCAL_API:-http://ghost:11434}"
       OLLAMA_MODELS: "${GHOST_MODELS_TO_PULL:-llama3.2}"
     entrypoint:
       - /bin/sh
@@ -140,7 +140,7 @@ services:
       - secnet
     restart: "no"
     depends_on:
-      ollama:
+      ghost:
         condition: service_healthy
     logging: *graylog-logging
 
@@ -276,7 +276,7 @@ services:
       GHOST_RUN_ON_STARTUP: "${GHOST_RUN_ON_STARTUP:-true}"
       GHOST_MAX_LOG_LINES: "${GHOST_MAX_LOG_LINES:-2500}"
       GHOST_CONTEXT_CHARS: "${GHOST_CONTEXT_CHARS:-24000}"
-      GHOST_LOCAL_API: "${GHOST_LOCAL_API:-http://ollama:11434}"
+      GHOST_LOCAL_API: "${GHOST_LOCAL_API:-http://ghost:11434}"
       # Brain — Graylog API
       GRAYLOG_API_URL: "${GRAYLOG_API_URL:-http://graylog:9000/api}"
       GRAYLOG_ROOT_USERNAME: "${GRAYLOG_ROOT_USERNAME:-admin}"
@@ -308,7 +308,7 @@ services:
       - secnet
     restart: unless-stopped
     depends_on:
-      ollama-model-pull:
+      ghost-model-pull:
         condition: service_completed_successfully
       graylog:
         condition: service_healthy
@@ -390,7 +390,7 @@ services:
       - vault-data:/sources/vault-data:ro
       - vault-logs:/sources/vault-logs:ro
       - vault-rotator-state:/sources/vault-rotator-state:ro
-      - ollama-data:/sources/ollama-data:ro
+      - ghost-data:/sources/ghost-data:ro
       - wazuh-indexer-data:/sources/wazuh-indexer-data:ro
       - wazuh-manager-data:/sources/wazuh-manager-data:ro
       - wazuh-manager-logs:/sources/wazuh-manager-logs:ro
@@ -1236,7 +1236,7 @@ volumes:
   trivy-cache:
   fluent-bit-state:
   uptime-kuma-data:
-  ollama-data:
+  ghost-data:
   wazuh-indexer-data:
   wazuh-manager-data:
   wazuh-manager-logs:

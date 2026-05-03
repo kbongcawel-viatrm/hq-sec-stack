@@ -1,22 +1,22 @@
-# Ollama Analysis Runtime
+# The Ghost Analysis Runtime
 
-Ollama is the local LLM runtime for stack assessment, report generation, attack-pattern review, hardening recommendations, and response planning.
+The Ghost is the local LLM runtime for stack assessment, report generation, attack-pattern review, hardening recommendations, and response planning. It uses the upstream runtime image underneath.
 
 ## Containers
 
 | Container | Role |
 | --- | --- |
-| `ollama` | Runs the `ollama/ollama` API on port `11434` |
-| `ollama-model-pull` | Pulls `${OLLAMA_MODEL:-llama3.2}` after the API is healthy |
-| `ollama-assessor` | Scheduled log and evidence analysis task |
+| `ghost` | Runs the upstream runtime API on port `11434` |
+| `ghost-model-pull` | Pulls `${GHOST_MODELS_TO_PULL:-llama3.2}` after the API is healthy |
+| `ghost-assessor` | Scheduled log and evidence analysis task |
 
 ## Endpoints
 
 | Endpoint | Purpose |
 | --- | --- |
 | `http://localhost:11434` | Host API access |
-| `http://ollama.hq-sec.local` | Local FQDN API route |
-| `http://ollama:11434` | Internal Docker API |
+| `http://ghost.hq-sec.local` | Canonical local FQDN API route |
+| `http://ghost:11434` | Internal Docker API alias used by The Ghost |
 
 Use `/api/generate` or `/api/chat` for contextual analysis. The model does not persist new knowledge across sessions. Historical context requires a future RAG pipeline or explicit evidence supplied in each prompt.
 
@@ -25,17 +25,17 @@ Use `/api/generate` or `/api/chat` for contextual analysis. The model does not p
 Default model:
 
 ```text
-OLLAMA_MODEL=llama3.2
+GHOST_MODEL=llama3.2
 ```
 
-`gemma3` can be used instead if the deployment host has enough resources and the model is available through Ollama.
+`gemma3` can be used instead if the deployment host has enough resources and the model is available through the local runtime.
 
 ## Schedule
 
-`ollama-assessor` runs on startup and then according to:
+`ghost-assessor` runs on startup and then according to:
 
 ```text
-OLLAMA_ANALYSIS_CRON=0 2 * * *
+GHOST_CRON=0 2 * * *
 ```
 
 The cron implementation supports simple daily/hourly expressions with `minute hour * * *`. Reports are written to:
@@ -56,9 +56,9 @@ The Hands/reports/data/log-assessments/latest/assessment.json
 
 ## Security Notes
 
-The lab Ollama API is internal but not authenticated by default. Bind host access with `STACK_BIND_IP` and keep `ollama.hq-sec.local` on the local lab network. The assessor uses Graylog credentials from `.env` or `.env.vault`; those credentials are already covered by the Vault secret manifest and monthly rotation workflow.
+The Ghost API is internal but not authenticated by default. Bind host access with `STACK_BIND_IP` and keep `ghost.hq-sec.local` on the local lab network. The assessor uses Graylog credentials from `.env` or `.env.vault`; those credentials are already covered by the Vault secret manifest and monthly rotation workflow.
 
-Ollama runs with the upstream image default user because model storage under `/root/.ollama` is the image's standard path. Treat the model volume as persistent state and include it in backups.
+The local runtime runs with the upstream image default user because model storage under `/root/.ollama` is the image's standard path. Treat the model volume as persistent state and include it in backups.
 
 ## Persona Foundations
 
@@ -69,4 +69,3 @@ Eyes: determine attack patterns from Suricata, Zeek, OSSEC/Wazuh, and network ev
 Shield: recommend hardening using Vault, osquery, Greenbone/OpenVAS, TheHive, Shuffle, Velociraptor, and Ansible context.
 
 Sword: plan protective execution, including Ansible playbook ideas, without executing response actions automatically.
-

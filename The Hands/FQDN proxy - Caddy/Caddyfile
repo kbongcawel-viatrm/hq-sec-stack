@@ -83,6 +83,6 @@ uptime.hq-sec.local {
     reverse_proxy http://uptime-kuma:3001
 }
 
-ollama.hq-sec.local {
-    reverse_proxy http://ollama:11434
+ghost.hq-sec.local {
+    reverse_proxy http://ghost:11434
 }
