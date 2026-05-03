@@ -34,6 +34,8 @@ SECSTACK_PROFILES="dns secrets brain" sh scripts/start-stack.sh
 - `ops`: Backups and container vulnerability scanning
 - `llm`: Alias for `ghost` — starts the Ghost engine and assessor only
 
+For GitHub Actions deployment settings and required repository secrets/variables, see [docs/github-actions.md](docs/github-actions.md).
+
 ## Key Endpoints
 
 | Service | Host Endpoint |
