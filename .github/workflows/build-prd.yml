@@ -1,4 +1,4 @@
-name: Build and Deploy Security Stack
+name: Build Security Stack (prd)
 
 on:
   push:
