@@ -1,20 +1,26 @@
 name: Prewarm Docker Image Artifacts
 
 on:
-  schedule:
-    - cron: '0 0 * * *'
-  workflow_dispatch:
   push:
-    branches:
-      - dev
-      - main
+    branches: ['dev','main']
+  workflow_dispatch:
+    inputs:
+      environment: 
+        description: 'Deployment environment'
+        required: true
+        default: 'development'
+        type: choice
+        options:
+          - development
+          - production
+
 permissions:
   contents: write
 
 jobs:
   prewarm-batches:
     name: Prewarm ${{ matrix.batch.name }}
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, laptop]
     env:
       HARBOR_CACHE_FALLBACK_TO_ORIGIN: "true"
       HARBOR_CACHE_HOST: ${{ vars.HARBOR_CACHE_HOST }}
