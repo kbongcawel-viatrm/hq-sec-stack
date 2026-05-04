@@ -41,26 +41,18 @@ jobs:
           - name: small-base
             targets: |
               fluent/fluent-bit:3.2.10
-              curlimages/curl:8.10.1
               coredns/coredns:1.11.3
               caddy:2.8.4-alpine
               python:3.12-alpine
               alpine:3.20
-              hashicorp/vault:1.18
-              aquasec/trivy:0.70.0
 
           - name: ops-monitoring
             targets: |
-              portainer/portainer-ce:latest
-              crowdsecurity/crowdsec:v1.6.3
               louislam/uptime-kuma:1.23.16
-              mongo:7.0.29
-              graylog/graylog-datanode:7.0.6
               graylog/graylog:7.0.6
 
           - name: wazuh
             targets: |
-              wazuh/wazuh-indexer:4.14.4
               wazuh/wazuh-manager:4.14.4
               wazuh/wazuh-dashboard:4.14.4
 
@@ -94,12 +86,14 @@ jobs:
               registry.community.greenbone.net/community/gsa:stable-slim
               registry.community.greenbone.net/community/gsad:stable
               registry.community.greenbone.net/community/gvm-config:latest
-              registry.community.greenbone.net/community/nginx:latest
               registry.community.greenbone.net/community/openvas-scanner:stable
               registry.community.greenbone.net/community/ospd-openvas:stable
               registry.community.greenbone.net/community/gvm-tools:latest
 
-
+          - name: ollama
+            targets: |
+               llama3.2:3b-q4_K_M
+  
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
