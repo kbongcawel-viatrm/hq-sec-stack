@@ -11,8 +11,8 @@ on:
         default: 'production'
         type: choice
         options:
-          - development
           - production
+          - development
           
 permissions:
   contents: write
@@ -35,7 +35,7 @@ jobs:
 
     strategy:
       fail-fast: false
-      max-parallel: 1
+      max-parallel: 3
       matrix:
         batch:
           - name: small-base
@@ -98,7 +98,10 @@ jobs:
               registry.community.greenbone.net/community/openvas-scanner:stable
               registry.community.greenbone.net/community/ospd-openvas:stable
               registry.community.greenbone.net/community/gvm-tools:latest
-              
+
+          - name: ollama
+            targets: |
+               llama3.2:3b-q4_K_M
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -140,9 +143,9 @@ jobs:
       - name: Show generated artifacts
         if: always()
         run: |
-          find /${{ runner.temp }}/artifacts -type f -name "*.tar.gz" -print || true
-          du -sh /${{ runner.temp }}/artifacts || true
-          df -h /${{ runner.temp }}/ || true
+          find ${{ runner.temp }}/artifacts -type f -name "*.tar.gz" -print || true
+          du -sh ${{ runner.temp }}/artifacts || true
+          df -h ${{ runner.temp }}/ || true
           docker system df || true
 
       - name: Upload Docker image artifacts
@@ -150,17 +153,17 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: docker-images-${{ matrix.batch.name }}
-          path: /${{ runner.temp }}/artifacts/${{ matrix.batch.name }}/*.tar.gz
+          path: ${{ runner.temp }}/artifacts/${{ matrix.batch.name }}/*.tar.gz
           if-no-files-found: error
           retention-days: 7
 
       - name: Final cleanup
         if: always()
         run: |
-          rm -rf /${{ runner.temp }}/artifacts .cache-targets
+          rm -rf ${{ runner.temp }}/artifacts .cache-targets
           docker container prune -f || true
           docker image prune -af || true
           docker volume prune -f || true
           docker builder prune -af || true
-          df -h /${{ runner.temp }} || true
+          df -h ${{ runner.temp }} || true
           df -h /var/lib/docker || true
