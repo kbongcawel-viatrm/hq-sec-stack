@@ -1,20 +1,26 @@
-name: Prewarm Docker Image Artifacts - PRD
+name: Prewarm Docker Image Artifacts
 
 on:
-  schedule:
-    - cron: '0 0 * * *'
-  workflow_dispatch:
   push:
-    branches:
-      - dev
-      - main
+    branches: ['dev','main']
+  workflow_dispatch:
+    inputs:
+      environment: 
+        description: 'Deployment environment'
+        required: true
+        default: 'development'
+        type: choice
+        options:
+          - development
+          - production
+          
 permissions:
   contents: write
 
 jobs:
   prewarm-batches:
     name: Prewarm ${{ matrix.batch.name }}
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, laptop]
     env:
       HARBOR_CACHE_FALLBACK_TO_ORIGIN: "true"
       HARBOR_CACHE_HOST: ${{ vars.HARBOR_CACHE_HOST }}
@@ -81,6 +87,7 @@ jobs:
               registry.community.greenbone.net/community/data-objects:latest
               registry.community.greenbone.net/community/report-formats:latest
               registry.community.greenbone.net/community/gpg-data:latest
+              greenbone/redis-server:latest
               registry.community.greenbone.net/community/pg-gvm-migrator:stable
               registry.community.greenbone.net/community/pg-gvm:stable
               registry.community.greenbone.net/community/gvmd:stable
@@ -91,8 +98,7 @@ jobs:
               registry.community.greenbone.net/community/openvas-scanner:stable
               registry.community.greenbone.net/community/ospd-openvas:stable
               registry.community.greenbone.net/community/gvm-tools:latest
-
-
+              
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -130,12 +136,15 @@ jobs:
           python3 scripts/prewarm-registry-cache-final.py \
             --targets-file ".cache-targets/${{ matrix.batch.name }}.txt" \
             --artifact-dir "/${{ runner.temp }}/artifacts/${{ matrix.batch.name }}"
+
       - name: Show generated artifacts
         if: always()
+        run: |
           find /${{ runner.temp }}/artifacts -type f -name "*.tar.gz" -print || true
           du -sh /${{ runner.temp }}/artifacts || true
           df -h /${{ runner.temp }}/ || true
           docker system df || true
+
       - name: Upload Docker image artifacts
         if: always()
         uses: actions/upload-artifact@v4
@@ -143,6 +152,8 @@ jobs:
           name: docker-images-${{ matrix.batch.name }}
           path: /${{ runner.temp }}/artifacts/${{ matrix.batch.name }}/*.tar.gz
           if-no-files-found: error
+          retention-days: 7
+
       - name: Final cleanup
         if: always()
         run: |
