@@ -3,8 +3,7 @@ set -eu
 
 COMPOSE_FILE="${COMPOSE_FILE:-security-stack.compose.yml}"
 PROJECT_ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
-PROFILES="${SECSTACK_PROFILES:-all}"
-PULL_IMAGES="${PULL_IMAGES:-true}"
+PROFILES="${SECSTACK_PROFILES:-all,brain,eyes,hand,shield,sword}"
 APPLY_SYSCTL="${APPLY_SYSCTL:-true}"
 WAIT_HEALTH="${WAIT_HEALTH:-true}"
 HEALTH_TIMEOUT_SECONDS="${HEALTH_TIMEOUT_SECONDS:-900}"
