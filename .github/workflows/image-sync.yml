@@ -1,4 +1,4 @@
-name: Prewarm Docker Image Artifacts
+name: Prewarm Docker Image Artifacts (development)
 
 on:
   push:
