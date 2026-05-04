@@ -1,13 +1,13 @@
-name: Prewarm Docker Image Artifacts
+name: Prewarm Docker Image Artifacts - PRD
+
 on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
   push:
     branches:
       - dev
       - main
-  schedule:
-    - cron: '0 0 * * *'
-  workflow_dispatch:
-
 permissions:
   contents: write
 
