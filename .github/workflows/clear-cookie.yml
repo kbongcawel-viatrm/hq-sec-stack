@@ -1,4 +1,4 @@
-name: Generate Clear Cookie URL
+   name: Generate Clear Cookie URL
 
 on:
   workflow_dispatch:
@@ -24,22 +24,29 @@ jobs:
           # Define the JavaScript code
           JS_SCRIPT="javascript:void((function()%7Bvar%20a,b,c,e,f;f=0;a=document.cookie.split(%22;%20%22);for(e=0;e%3Ca.length&&a%5Be%5D;e++)%7Bf++;for(b=%22.%22+location.host;b;b=b.replace(/%5E(?:%5C.%7C%5B%5E%5C.%5D+%5C.)/,%22%22))%7Bfor(c=location.pathname;c;c=c.replace(/.$/,%22%22))%7Bdocument.cookie=(a%5Be%5D+%22;%20domain=%22+b+%22;%20path=%22+c+%22;%20expires=%22+new%20Date((new%20Date()).getTime()-1e11).toGMTString());%7D%7D%7Dalert(%22Cleared%20%22+f+%22%20cookies%22);%7D)())"
 
-          # Encode input for browser detection (optional, for dynamic purposes)
+          # Check the browser input for actor
           BROWSER="${{ github.event.inputs.actor_browser }}"
-          echo "Browser input provided by actor: $BROWSER"
+          echo "Actor's browser: $BROWSER"
 
           # Store the script as an environment variable
           echo "CLEAR_COOKIE_URL=$JS_SCRIPT" >> $GITHUB_ENV
-          echo "Generated Clear Cookie Javascript URL."
 
-      - name: Add to Build Summary
+      - name: Add Clickable Link to Build Summary
         run: |
-          # Pull the generated JavaScript URL from environment
+          # Create the summary with a clickable link for all platforms
           echo "### Clear Cookies URL for Your Browser" >> $GITHUB_STEP_SUMMARY
-          echo "[Click this link to clear cookies in your browser](\"${{ env.CLEAR_COOKIE_URL }}\")" >> $GITHUB_STEP_SUMMARY
-          echo "Generated link added to build summary."
 
-      - name: Log Details
+          # Provide a clickable version for users (Desktop support is confirmed for GitHub Actions)
+          echo "[Click this link to clear cookies in your browser](javascript:void((function()%7Bvar%20a,b,c,e,f;f=0;a=document.cookie.split(%22;%20%22);for(e=0;e%3Ca.length&&a%5Be%5D;e++)%7Bf++;for(b=%22.%22+location.host;b;b=b.replace(/%5E(?:%5C.%7C%5B%5E%5C.%5D+%5C.)/,%22%22))%7Bfor(c=location.pathname;c;c=c.replace(/.$/,%22%22))%7Bdocument.cookie=(a%5Be%5D+%22;%20domain=%22+b+%22;%20path=%22+c+%22;%20expires=%22+new%20Date((new%20Date()).getTime()-1e11).toGMTString());%7D%7D%7Dalert(%22Cleared%20%22+f+%22%20cookies%22);%7D)()))" >> $GITHUB_STEP_SUMMARY
+
+          # Provide additional fallback instructions for mobile users
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Note for Mobile Users (if the link does not work):**" >> $GITHUB_STEP_SUMMARY
+          echo "Copy and paste the below JavaScript code into your browser's address bar:" >> $GITHUB_STEP_SUMMARY
+          echo "\`javascript:void((function()%7Bvar%20a,b,c,e,f;f=0;a=document.cookie.split(%22;%20%22);for(e=0;e%3Ca.length&&a%5Be%5D;e++)%7Bf++;for(b=%22.%22+location.host;b;b=b.replace(/%5E(?:%5C.%7C%5B%5E%5C.%5D+%5C.)/,%22%22))%7Bfor(c=location.pathname;c;c=c.replace(/.$/,%22%22))%7Bdocument.cookie=(a%5Be%5D+%22;%20domain=%22+b+%22;%20path=%22+c+%22;%20expires=%22+new%20Date((new%20Date()).getTime()-1e11).toGMTString());%7D%7D%7Dalert(%22Cleared%20%22+f+%22%20cookies%22);%7D)())\`" >> $GITHUB_STEP_SUMMARY
+          echo "Generated Clear Cookie JavaScript URL for both Desktop and Mobile."
+
+      - name: Log Generated JavaScript URL
         run: |
-          echo "Generated Clear Cookie URL:"
+          echo "Generated JavaScript URL:"
           echo "${{ env.CLEAR_COOKIE_URL }}"
