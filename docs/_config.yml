@@ -1,0 +1,25 @@
+theme: jekyll-theme-minimal
+title: HQ Security Stack
+description: A comprehensive home security stack with FIM, alerting, IDS/IPS, log analysis, and incident response
+url: "https://kbongcawel-viatrm.github.io/hq-sec-stack"
+repository: kbongcawel-viatrm/hq-sec-stack
+show_downloads: true
+google_analytics: 
+
+# Markdown settings
+markdown: kramdown
+kramdown:
+  input: GFM
+  hard_wrap: false
+
+# Plugin settings
+plugins:
+  - jekyll-seo-tag
+  - jekyll-sitemap
+
+# Exclude files/folders
+exclude:
+  - .github/
+  - vendor/
+  - .gitignore
+  - README.md
