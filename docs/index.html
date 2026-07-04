@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HQ Security Stack - Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #0f172a;
+            color: #e2e8f0;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            margin-bottom: 40px;
+        }
+
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        h1 {
+            font-size: 2em;
+            font-weight: 700;
+            background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .status-block {
+            background: rgba(30, 41, 59, 0.8);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            border-radius: 8px;
+            padding: 16px 24px;
+            backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 250px;
+        }
+
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #10b981;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        .status-text {
+            font-size: 0.9em;
+        }
+
+        .status-text strong {
+            color: #60a5fa;
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .status-iframe-container {
+            width: 100%;
+            height: 80px;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            margin-bottom: 30px;
+        }
+
+        .status-iframe-container iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            background: rgba(30, 41, 59, 0.8);
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        .service-card {
+            background: rgba(30, 41, 59, 0.6);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            border-radius: 12px;
+            padding: 32px 24px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            backdrop-filter: blur(10px);
+            min-height: 200px;
+        }
+
+        .service-card:hover {
+            background: rgba(30, 41, 59, 0.9);
+            border-color: rgba(96, 165, 250, 0.5);
+            transform: translateY(-4px);
+            box-shadow: 0 8px 32px rgba(59, 130, 246, 0.2);
+        }
+
+        .service-card:active {
+            transform: translateY(-2px);
+        }
+
+        .service-logo {
+            width: 64px;
+            height: 64px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5em;
+        }
+
+        .service-name {
+            font-size: 1.1em;
+            font-weight: 600;
+            color: #e2e8f0;
+        }
+
+        .service-description {
+            font-size: 0.85em;
+            color: #94a3b8;
+        }
+
+        /* Cloudflare Logo SVG Styling */
+        .cf-logo {
+            width: 60px;
+            height: 60px;
+        }
+
+        footer {
+            margin-top: 60px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(148, 163, 184, 0.2);
+            text-align: center;
+            color: #64748b;
+            font-size: 0.9em;
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 1.5em;
+            }
+
+            .header-top {
+                flex-direction: column;
+                gap: 20px;
+                align-items: flex-start;
+            }
+
+            .status-block {
+                width: 100%;
+            }
+
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-top">
+                <h1>HQ Security Stack</h1>
+                <div class="status-block">
+                    <div class="status-indicator"></div>
+                    <div class="status-text">
+                        <strong>System Status</strong>
+                        <span>All Services Operational</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- BetterStack Status Embed -->
+            <div class="status-iframe-container">
+                <iframe src="https://status.home-security.uk/" title="HQ Security Stack Status"></iframe>
+            </div>
+        </header>
+
+        <main>
+            <div class="dashboard-grid">
+                <!-- Status Page -->
+                <a href="https://status.home-security.uk/" target="_blank" class="service-card">
+                    <div class="service-logo">📊</div>
+                    <div class="service-name">Status Page</div>
+                    <div class="service-description">System Status & Uptime</div>
+                </a>
+
+                <!-- SSO -->
+                <a href="https://home-security-xyz.cloudflareaccess.com/warp" target="_blank" class="service-card">
+                    <div class="service-logo">
+                        <svg class="cf-logo" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M50 10C28.9 10 11 27.9 11 49c0 21.1 17.9 39 39 39s39-17.9 39-39S71.1 10 50 10z" fill="#F38020"/>
+                            <path d="M50 25c-13.3 0-24 10.7-24 24s10.7 24 24 24 24-10.7 24-24-10.7-24-24-24z" fill="#0051BA"/>
+                        </svg>
+                    </div>
+                    <div class="service-name">Cloudflare One</div>
+                    <div class="service-description">SSO & Access</div>
+                </a>
+
+                <!-- Agent Check -->
+                <a href="agent-check.html" class="service-card">
+                    <div class="service-logo">🔍</div>
+                    <div class="service-name">Agent Check</div>
+                    <div class="service-description">Browser & Device Detection</div>
+                </a>
+
+                <!-- Headless Browser -->
+                <a href="https://browserless.io/" target="_blank" class="service-card">
+                    <div class="service-logo">🌐</div>
+                    <div class="service-name">Headless Browser</div>
+                    <div class="service-description">Browser Automation</div>
+                </a>
+            </div>
+        </main>
+
+        <footer>
+            <p>&copy; 2026 HQ Security Stack. All services operational.</p>
+        </footer>
+    </div>
+</body>
+</html>
