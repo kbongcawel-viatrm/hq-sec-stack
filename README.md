@@ -1,6 +1,6 @@
 
-[![Prewarm Docker Image Artifacts](https://github.com/kbongcawel-viatrm/hq-sec-stack/actions/workflows/image-sync.yml/badge.svg?branch=dev&event=deployment_status)](https://github.com/kbongcawel-viatrm/hq-sec-stack/actions/workflows/image-sync.yml)
-<img width="570" height="210" alt="glowing_aura_banner_1900x700_10mb" src="https://github.com/user-attachments/assets/5b8ceadd-6fc3-48f7-a1db-8b7c8b131332" />
+[![Prewarm Docker Image Artifacts](https://github.com/kbongcawel-viatrm/hq-sec-stack/actions/workflows/image-sync.yml/badge.svg?branch=dev&event=deployment_status)](https://github.com/kbongcawel-viatrm/hq-sec-stack/actions/workflows/image-sync.yml)<br>
+<img align=center width="750" height="210" alt="glowing_aura_banner_1900x700_10mb" src="https://github.com/user-attachments/assets/5b8ceadd-6fc3-48f7-a1db-8b7c8b131332" />
 
 > *"The soul behind the body parts. Pulling the strings. Making everyone better."*
 
